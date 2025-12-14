@@ -17,7 +17,7 @@ namespace PrefabPreviewer
 {
     public class ViewportXWindow : EditorWindow
     {
-        private const string MenuPath = "Tools/ViewportX";
+        private const string MenuPath = "Window/TBooox/ViewportX";
         private const string UxmlGuid = "da9ded1f94a3b464abaefea0b9f7c365";
         private const string UssGuid = "784c8e8d65cde5540a8e61ae40dfa81a";
         private const float PerspectiveFieldOfView = 60f;
@@ -101,6 +101,7 @@ namespace PrefabPreviewer
                 SaveConfig();
             }
             UpdateGridState();
+            _previewSurface?.MarkDirtyRepaint();
         }
 
         private void ToggleLighting(bool enabled)
@@ -168,8 +169,13 @@ namespace PrefabPreviewer
                 return;
             }
 
-            var extent = Mathf.Max(_contentBounds.extents.magnitude, 1f);
-            var spacing = Mathf.Clamp(extent / 8f, 0.1f, 2f);
+            var extent = Mathf.Max(Mathf.Max(_contentBounds.extents.x, _contentBounds.extents.z), 1f);
+            var spacing = Mathf.Clamp(extent / 8f, 0.1f, 10f);
+            var requiredLineCount = Mathf.CeilToInt(extent / spacing);
+            if (requiredLineCount > 200)
+            {
+                spacing = extent / 200f;
+            }
             UpdateGridMesh(extent, spacing);
 
             var position = _contentBounds.center;
@@ -320,18 +326,10 @@ namespace PrefabPreviewer
         private Button _viewXButton;
         private Button _viewYButton;
         private Button _viewZButton;
-        private VisualElement _settingsContainer;
-        private VisualElement _settingsWindow;
-        private Label _aboutVersionLabel;
-        private Label _aboutAuthorLabel;
-        private Button _aboutAuthorLinkButton;
-        private Button _aboutDocumentLinkButton;
-        private Label _aboutLanguageLabel;
-        private DropdownField _aboutLanguageDropdown;
-        private Label _configTitleLabel;
-        private Label _configPathLabel;
-        private Label _toolsLabel;
-        private Label _toolIntroductionLabel;
+        private ViewportXSettingsOverlay _settingsOverlay;
+        private ViewportXLocalization.Key _statusKey = ViewportXLocalization.Key.StatusNoAsset;
+        private ViewportXLocalization.Key? _statusArgKey;
+        private string _statusArgLiteral;
         private Vector2 _previewSize;
         private bool _isDragging;
         private bool _isPanning;
@@ -446,6 +444,11 @@ namespace PrefabPreviewer
         private bool _textureHasCustomUv;
         private Texture _assetPreviewTexture;
         private UnityEngine.Object _assetPreviewSource;
+        private double _assetPreviewNextPollTime;
+        private int _assetPreviewSourceInstanceId;
+        private const double AssetPreviewPollIntervalSeconds = 0.15;
+
+        private bool _windowIsVisible = true;
         private Vector3 _panOffset = Vector3.zero;
         private ViewAxis _currentViewAxis = ViewAxis.Z;
         private const string ViewAxisPrefsKey = "PrefabPreviewer_ViewAxis";
@@ -476,6 +479,18 @@ namespace PrefabPreviewer
             Selection.selectionChanged += OnSelectionChanged;
             EditorApplication.update += OnEditorUpdate;
             _lastUpdateTime = EditorApplication.timeSinceStartup;
+            _windowIsVisible = true;
+        }
+
+        private void OnBecameVisible()
+        {
+            _windowIsVisible = true;
+            _lastUpdateTime = EditorApplication.timeSinceStartup;
+        }
+
+        private void OnBecameInvisible()
+        {
+            _windowIsVisible = false;
         }
 
         private void LoadPersistedLanguage()
@@ -500,39 +515,79 @@ namespace PrefabPreviewer
             SaveConfig();
         }
 
-        private void ApplyAboutLanguage()
+        private void ApplyToolbarTooltips()
         {
-            var configFilePath = GetConfigFilePath();
+            var chinese = _uiLanguage == UiLanguage.Chinese;
 
-            if (_uiLanguage == UiLanguage.Chinese)
+            if (_playButton != null) _playButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipPlayPauseParticles, chinese);
+            if (_restartButton != null) _restartButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRestartParticles, chinese);
+            if (_gridToggle != null) _gridToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipGrid, chinese);
+            if (_autoRotateToggle != null) _autoRotateToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipAutoRotate, chinese);
+            if (_lightingToggle != null) _lightingToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipLighting, chinese);
+
+            if (_refreshButton != null) _refreshButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRefreshSelection, chinese);
+            if (_resetButton != null) _resetButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipResetView, chinese);
+            if (_viewXButton != null) _viewXButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewX, chinese);
+            if (_viewYButton != null) _viewYButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewY, chinese);
+            if (_viewZButton != null) _viewZButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewZ, chinese);
+            if (_frameButton != null) _frameButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipFrame, chinese);
+            if (_settingsButton != null) _settingsButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipSettings, chinese);
+        }
+
+        private void ApplyLocalizedTexts()
+        {
+            ApplyToolbarTooltips();
+            UpdatePlayButtonLabel();
+            UpdateSelectionLabel();
+            ApplyStatusFromState();
+        }
+
+        private void SetStatus(ViewportXLocalization.Key key)
+        {
+            _statusKey = key;
+            _statusArgKey = null;
+            _statusArgLiteral = null;
+            ApplyStatusFromState();
+        }
+
+        private void SetStatus(ViewportXLocalization.Key key, ViewportXLocalization.Key argKey)
+        {
+            _statusKey = key;
+            _statusArgKey = argKey;
+            _statusArgLiteral = null;
+            ApplyStatusFromState();
+        }
+
+        private void SetStatus(ViewportXLocalization.Key key, string argLiteral)
+        {
+            _statusKey = key;
+            _statusArgKey = null;
+            _statusArgLiteral = argLiteral;
+            ApplyStatusFromState();
+        }
+
+        private void ApplyStatusFromState()
+        {
+            if (_statusLabel == null)
             {
-                if (_aboutVersionLabel != null) _aboutVersionLabel.text = $"版本: {AboutVersion}";
-                if (_aboutAuthorLabel != null) _aboutAuthorLabel.text = $"作者: {AboutAuthor}";
-                if (_aboutLanguageLabel != null) _aboutLanguageLabel.text = "语言:";
-                if (_aboutAuthorLinkButton != null) _aboutAuthorLinkButton.text = "访问作者主页";
-                if (_aboutDocumentLinkButton != null) _aboutDocumentLinkButton.text = "文档";
-                if (_configTitleLabel != null) _configTitleLabel.text = "配置";
-                if (_configPathLabel != null) _configPathLabel.text = $"存储路径: {configFilePath}";
-                if (_toolsLabel != null) _toolsLabel.text = "工具说明";
-                if (_toolIntroductionLabel != null) _toolIntroductionLabel.text = "ViewportX：用于在编辑器中预览 Prefab/模型/粒子/UGUI。支持旋转、缩放、平移、视图切换、网格与灯光等。";
-            }
-            else
-            {
-                if (_aboutVersionLabel != null) _aboutVersionLabel.text = $"Version: {AboutVersion}";
-                if (_aboutAuthorLabel != null) _aboutAuthorLabel.text = $"Author: {AboutAuthor}";
-                if (_aboutLanguageLabel != null) _aboutLanguageLabel.text = "Language:";
-                if (_aboutAuthorLinkButton != null) _aboutAuthorLinkButton.text = "Visit Author's Homepage";
-                if (_aboutDocumentLinkButton != null) _aboutDocumentLinkButton.text = "Documentation";
-                if (_configTitleLabel != null) _configTitleLabel.text = "Configuration";
-                if (_configPathLabel != null) _configPathLabel.text = $"Storage: {configFilePath}";
-                if (_toolsLabel != null) _toolsLabel.text = "About";
-                if (_toolIntroductionLabel != null) _toolIntroductionLabel.text = "ViewportX is a prefab preview tool for viewing Prefabs/models/particles/UGUI in the Editor. Supports orbit, zoom, pan, view axes, grid and lighting.";
+                return;
             }
 
-            if (_aboutLanguageDropdown != null)
+            var chinese = _uiLanguage == UiLanguage.Chinese;
+            if (_statusArgKey.HasValue)
             {
-                _aboutLanguageDropdown.SetValueWithoutNotify(_uiLanguage == UiLanguage.Chinese ? "中文" : "English");
+                var arg = ViewportXLocalization.Get(_statusArgKey.Value, chinese);
+                _statusLabel.text = ViewportXLocalization.Format(_statusKey, chinese, arg);
+                return;
             }
+
+            if (!string.IsNullOrEmpty(_statusArgLiteral))
+            {
+                _statusLabel.text = ViewportXLocalization.Format(_statusKey, chinese, _statusArgLiteral);
+                return;
+            }
+
+            _statusLabel.text = ViewportXLocalization.Get(_statusKey, chinese);
         }
 
         private void OnDisable()
@@ -552,7 +607,7 @@ namespace PrefabPreviewer
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(uxmlPath);
             if (tree == null)
             {
-                rootVisualElement.Add(new Label($"找不到 UXML：{uxmlPath}"));
+                rootVisualElement.Add(new Label(ViewportXLocalization.Format(ViewportXLocalization.Key.MissingUxml, _uiLanguage == UiLanguage.Chinese, uxmlPath)));
                 return;
             }
 
@@ -562,6 +617,10 @@ namespace PrefabPreviewer
             if (sheet != null)
             {
                 rootVisualElement.styleSheets.Add(sheet);
+            }
+            else
+            {
+                rootVisualElement.Add(new Label(ViewportXLocalization.Format(ViewportXLocalization.Key.MissingUss, _uiLanguage == UiLanguage.Chinese, ussPath)));
             }
 
             _previewHost = rootVisualElement.Q<VisualElement>("preview-image");
@@ -591,18 +650,6 @@ namespace PrefabPreviewer
             _viewXButton = rootVisualElement.Q<Button>("btn-view-x");
             _viewYButton = rootVisualElement.Q<Button>("btn-view-y");
             _viewZButton = rootVisualElement.Q<Button>("btn-view-z");
-            _settingsContainer = rootVisualElement.Q<VisualElement>("settings-container");
-            _settingsWindow = rootVisualElement.Q<VisualElement>("settings-window");
-            _aboutVersionLabel = rootVisualElement.Q<Label>("version-label");
-            _aboutAuthorLabel = rootVisualElement.Q<Label>("author-label");
-            _aboutAuthorLinkButton = rootVisualElement.Q<Button>("author-link-button");
-            _aboutDocumentLinkButton = rootVisualElement.Q<Button>("document-link-button");
-            _aboutLanguageLabel = rootVisualElement.Q<Label>("language-label");
-            _aboutLanguageDropdown = rootVisualElement.Q<DropdownField>("language-dropdown");
-            _configTitleLabel = rootVisualElement.Q<Label>("config-title-label");
-            _configPathLabel = rootVisualElement.Q<Label>("config-path-label");
-            _toolsLabel = rootVisualElement.Q<Label>("tools-label");
-            _toolIntroductionLabel = rootVisualElement.Q<Label>("tool-introduction-label");
 
             _refreshButton?.RegisterCallback<ClickEvent>(_ => RefreshSelection());
             _settingsButton?.RegisterCallback<ClickEvent>(_ => ShowSettings());
@@ -622,32 +669,39 @@ namespace PrefabPreviewer
                 _lightingToggle.RegisterValueChangedCallback(evt => ToggleLighting(evt.newValue));
             }
 
-            if (_aboutAuthorLinkButton != null)
-            {
-                _aboutAuthorLinkButton.clicked += () => Application.OpenURL(AboutAuthorLink);
-            }
-            if (_aboutDocumentLinkButton != null)
-            {
-                _aboutDocumentLinkButton.clicked += () => Application.OpenURL(AboutDocumentLink);
-            }
-
-            if (_aboutLanguageDropdown != null)
-            {
-                _aboutLanguageDropdown.choices = new List<string> { "English", "中文" };
-                _aboutLanguageDropdown.RegisterValueChangedCallback(evt =>
+            _settingsOverlay = new ViewportXSettingsOverlay(
+                AboutVersion,
+                AboutAuthor,
+                AboutAuthorLink,
+                AboutDocumentLink,
+                ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsToolIntroduction, true),
+                ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsToolIntroduction, false),
+                GetConfigFilePath,
+                _uiLanguage == UiLanguage.Chinese,
+                chinese =>
                 {
-                    _uiLanguage = evt.newValue == "中文" ? UiLanguage.Chinese : UiLanguage.English;
+                    _uiLanguage = chinese ? UiLanguage.Chinese : UiLanguage.English;
                     PersistLanguage();
-                    ApplyAboutLanguage();
+                    ApplyLocalizedTexts();
+                },
+                (key, isChinese) => key switch
+                {
+                    ViewportXSettingsOverlay.TextKey.SettingsVersion => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsVersion, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsAuthor => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsAuthor, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsVisitAuthor => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsVisitAuthor, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsDocumentation => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsDocumentation, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsLanguage => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsLanguage, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsConfig => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsConfig, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsStoragePath => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsStoragePath, isChinese),
+                    ViewportXSettingsOverlay.TextKey.SettingsTools => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsTools, isChinese),
+                    ViewportXSettingsOverlay.TextKey.LanguageOptionEnglish => ViewportXLocalization.Get(ViewportXLocalization.Key.LanguageOptionEnglish, isChinese),
+                    ViewportXSettingsOverlay.TextKey.LanguageOptionChinese => ViewportXLocalization.Get(ViewportXLocalization.Key.LanguageOptionChinese, isChinese),
+                    _ => string.Empty
                 });
-            }
+            rootVisualElement.Add(_settingsOverlay.Root);
 
-            ApplyAboutLanguage();
+            ApplyLocalizedTexts();
 
-            if (_settingsContainer != null)
-            {
-                _settingsContainer.RegisterCallback<MouseDownEvent>(OnSettingsContainerClick);
-            }
             _viewXButton?.RegisterCallback<ClickEvent>(_ => SnapViewToAxis(ViewAxis.X));
             _viewYButton?.RegisterCallback<ClickEvent>(_ => SnapViewToAxis(ViewAxis.Y));
             _viewZButton?.RegisterCallback<ClickEvent>(_ => SnapViewToAxis(ViewAxis.Z));
@@ -773,29 +827,12 @@ namespace PrefabPreviewer
 
         private void ShowSettings()
         {
-            if (_settingsContainer == null)
+            if (_settingsOverlay == null)
             {
                 return;
             }
 
-            _settingsContainer.style.display = DisplayStyle.Flex;
-            _settingsContainer.Focus();
-        }
-
-        private void OnSettingsContainerClick(MouseDownEvent evt)
-        {
-            if (_settingsContainer == null || _settingsWindow == null)
-            {
-                return;
-            }
-
-            var localMousePosition = _settingsWindow.WorldToLocal(evt.mousePosition);
-            var windowRect = _settingsWindow.contentRect;
-            if (!windowRect.Contains(localMousePosition))
-            {
-                _settingsContainer.style.display = DisplayStyle.None;
-                evt.StopPropagation();
-            }
+            _settingsOverlay.Show();
         }
 
         private void CreatePreviewUtility()
@@ -835,7 +872,7 @@ namespace PrefabPreviewer
         private void OnSelectionChanged()
         {
             UpdateSelectionLabel();
-            if (!hasFocus)
+            if (!_windowIsVisible)
             {
                 return;
             }
@@ -855,7 +892,7 @@ namespace PrefabPreviewer
 
             if (asset == null)
             {
-                SetStatusText("状态：未选中资产");
+                SetStatus(ViewportXLocalization.Key.StatusNoAsset);
                 ToggleParticleControlsVisibility(forceDisable: true);
                 UpdateControlStates();
                 _previewSurface?.MarkDirtyRepaint();
@@ -871,7 +908,7 @@ namespace PrefabPreviewer
 
                 if (_previewUtility == null)
                 {
-                    SetStatusText("状态：无法初始化预览渲染器");
+                    SetStatus(ViewportXLocalization.Key.StatusInitPreviewRendererFailed);
                     ToggleParticleControlsVisibility(forceDisable: true);
                     UpdateControlStates();
                     return;
@@ -880,7 +917,7 @@ namespace PrefabPreviewer
                 _previewInstance = _previewUtility.InstantiatePrefabInScene(prefab);
                 if (_previewInstance == null)
                 {
-                    SetStatusText("状态：无法实例化预制体");
+                    SetStatus(ViewportXLocalization.Key.StatusInstantiatePrefabFailed);
                     ToggleParticleControlsVisibility(forceDisable: true);
                     UpdateControlStates();
                     _previewSurface?.MarkDirtyRepaint();
@@ -926,13 +963,13 @@ namespace PrefabPreviewer
                     SetupSpritePreview(sprite);
                     break;
                 case Texture texture:
-                    SetupTexturePreview(texture, "纹理");
+                    SetupTexturePreview(texture, ViewportXLocalization.Key.AssetTypeTexture);
                     break;
                 case Material material:
-                    SetupAssetPreview(material, "材质");
+                    SetupAssetPreview(material, ViewportXLocalization.Key.AssetTypeMaterial);
                     break;
                 case Mesh mesh:
-                    SetupAssetPreview(mesh, "网格");
+                    SetupAssetPreview(mesh, ViewportXLocalization.Key.AssetTypeMesh);
                     break;
                 default:
                     SetupAssetPreview(asset, asset.GetType().Name);
@@ -1033,15 +1070,24 @@ namespace PrefabPreviewer
         private void OnEditorUpdate()
         {
             var now = EditorApplication.timeSinceStartup;
+
+            if (!_windowIsVisible)
+            {
+                return;
+            }
+
             var delta = (float)(now - _lastUpdateTime);
             _lastUpdateTime = now;
 
             switch (_displayMode)
             {
                 case PreviewDisplayMode.PrefabScene when _previewUtility != null:
+                    var needsRepaint = false;
+
                     if (_autoRotate && _contentType != PreviewContentType.UGUI)
                     {
                         _orbitAngles.y += delta * 15f;
+                        needsRepaint = true;
                     }
 
                     if (_contentType == PreviewContentType.Particle && _particlePlaying)
@@ -1050,9 +1096,14 @@ namespace PrefabPreviewer
                         {
                             ps.Simulate(delta, true, false, true);
                         }
+
+                        needsRepaint = true;
                     }
 
-                    _previewSurface?.MarkDirtyRepaint();
+                    if (needsRepaint)
+                    {
+                        _previewSurface?.MarkDirtyRepaint();
+                    }
                     break;
                 case PreviewDisplayMode.AssetPreview:
                     if (UpdateAssetPreviewTexture())
@@ -1082,7 +1133,7 @@ namespace PrefabPreviewer
                     DrawAssetPreview(rect);
                     break;
                 default:
-                    DrawInfoMessage(rect, "请选择一个可预览的资产");
+                    DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPreviewableAsset, _uiLanguage == UiLanguage.Chinese));
                     break;
             }
         }
@@ -1288,7 +1339,10 @@ namespace PrefabPreviewer
                 return;
             }
 
-            _playButton.text = _particlePlaying ? "暂停" : "播放";
+            var chinese = _uiLanguage == UiLanguage.Chinese;
+            _playButton.text = _particlePlaying
+                ? ViewportXLocalization.Get(ViewportXLocalization.Key.PlayButtonPause, chinese)
+                : ViewportXLocalization.Get(ViewportXLocalization.Key.PlayButtonPlay, chinese);
         }
 
         private Bounds CalculateRendererBounds(GameObject go)
@@ -1315,8 +1369,11 @@ namespace PrefabPreviewer
                 return;
             }
 
+            var chinese = _uiLanguage == UiLanguage.Chinese;
             var obj = Selection.activeObject;
-            _selectionLabel.text = obj == null ? "未选中任何资产" : $"选中：{obj.name}";
+            _selectionLabel.text = obj == null
+                ? ViewportXLocalization.Get(ViewportXLocalization.Key.SelectionNone, chinese)
+                : ViewportXLocalization.Format(ViewportXLocalization.Key.SelectionSelected, chinese, obj.name);
         }
 
         private void SnapViewToAxis(ViewAxis axis)
@@ -1404,13 +1461,13 @@ namespace PrefabPreviewer
         {
             if (_previewUtility == null)
             {
-                DrawInfoMessage(rect, "预览渲染器不可用");
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
             if (_previewInstance == null)
             {
-                DrawInfoMessage(rect, "请选择一个预制体");
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPrefab, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1425,7 +1482,7 @@ namespace PrefabPreviewer
         {
             if (_texturePreview == null)
             {
-                DrawInfoMessage(rect, "纹理不可用");
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.HintTextureUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1437,7 +1494,7 @@ namespace PrefabPreviewer
         {
             if (_assetPreviewTexture == null)
             {
-                DrawInfoMessage(rect, "正在生成预览...");
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1454,11 +1511,11 @@ namespace PrefabPreviewer
         {
             if (sprite == null)
             {
-                SetupTexturePreview(null, "Sprite");
+                SetupTexturePreview(null, ViewportXLocalization.Key.AssetTypeSprite);
                 return;
             }
 
-            SetupTexturePreview(sprite.texture, "Sprite");
+            SetupTexturePreview(sprite.texture, ViewportXLocalization.Key.AssetTypeSprite);
             if (sprite.texture != null)
             {
                 var tex = sprite.texture;
@@ -1472,13 +1529,48 @@ namespace PrefabPreviewer
             }
         }
 
+        private void SetupTexturePreview(Texture texture, ViewportXLocalization.Key typeKey)
+        {
+            _displayMode = PreviewDisplayMode.Texture;
+            _texturePreview = texture;
+            _textureHasCustomUv = false;
+            _textureUv = new Rect(0f, 0f, 1f, 1f);
+
+            _statusArgKey = typeKey;
+            _statusArgLiteral = null;
+            _statusKey = texture == null
+                ? ViewportXLocalization.Key.StatusTypeUnavailable
+                : ViewportXLocalization.Key.StatusTypeName;
+            ApplyStatusFromState();
+        }
+
         private void SetupTexturePreview(Texture texture, string typeName)
         {
             _displayMode = PreviewDisplayMode.Texture;
             _texturePreview = texture;
             _textureHasCustomUv = false;
             _textureUv = new Rect(0f, 0f, 1f, 1f);
-            SetStatusText(texture == null ? $"状态：{typeName}不可用" : $"状态：{typeName}");
+
+            _statusArgKey = null;
+            _statusArgLiteral = typeName;
+            _statusKey = texture == null
+                ? ViewportXLocalization.Key.StatusTypeUnavailable
+                : ViewportXLocalization.Key.StatusTypeName;
+            ApplyStatusFromState();
+        }
+
+        private void SetupAssetPreview(UnityEngine.Object target, ViewportXLocalization.Key labelKey)
+        {
+            _displayMode = PreviewDisplayMode.AssetPreview;
+            _assetPreviewSource = target;
+            _assetPreviewTexture = AssetPreview.GetAssetPreview(target) ?? AssetPreview.GetMiniThumbnail(target);
+            _assetPreviewSourceInstanceId = target != null ? target.GetInstanceID() : 0;
+            _assetPreviewNextPollTime = 0;
+
+            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusArgKey = labelKey;
+            _statusArgLiteral = null;
+            ApplyStatusFromState();
         }
 
         private void SetupAssetPreview(UnityEngine.Object target, string label)
@@ -1486,7 +1578,13 @@ namespace PrefabPreviewer
             _displayMode = PreviewDisplayMode.AssetPreview;
             _assetPreviewSource = target;
             _assetPreviewTexture = AssetPreview.GetAssetPreview(target) ?? AssetPreview.GetMiniThumbnail(target);
-            SetStatusText($"状态：{label}");
+            _assetPreviewSourceInstanceId = target != null ? target.GetInstanceID() : 0;
+            _assetPreviewNextPollTime = 0;
+
+            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusArgKey = null;
+            _statusArgLiteral = label;
+            ApplyStatusFromState();
         }
 
         private void ResetPreviewTextures()
@@ -1496,6 +1594,8 @@ namespace PrefabPreviewer
             _textureUv = new Rect(0f, 0f, 1f, 1f);
             _assetPreviewTexture = null;
             _assetPreviewSource = null;
+            _assetPreviewSourceInstanceId = 0;
+            _assetPreviewNextPollTime = 0;
         }
 
         private void SetStatusText(string text)
@@ -1513,6 +1613,19 @@ namespace PrefabPreviewer
                 return false;
             }
 
+            if (_assetPreviewSourceInstanceId == 0)
+            {
+                _assetPreviewSourceInstanceId = _assetPreviewSource.GetInstanceID();
+            }
+
+            var now = EditorApplication.timeSinceStartup;
+            if (now < _assetPreviewNextPollTime)
+            {
+                return AssetPreview.IsLoadingAssetPreview(_assetPreviewSourceInstanceId);
+            }
+
+            _assetPreviewNextPollTime = now + AssetPreviewPollIntervalSeconds;
+
             var preview = AssetPreview.GetAssetPreview(_assetPreviewSource);
             if (preview == null)
             {
@@ -1521,7 +1634,7 @@ namespace PrefabPreviewer
 
             if (preview == null)
             {
-                return AssetPreview.IsLoadingAssetPreview(_assetPreviewSource.GetInstanceID());
+                return AssetPreview.IsLoadingAssetPreview(_assetPreviewSourceInstanceId);
             }
 
             if (_assetPreviewTexture == preview)
@@ -1569,19 +1682,32 @@ namespace PrefabPreviewer
                 return;
             }
 
-            var status = _contentType switch
+            _statusKey = ViewportXLocalization.Key.StatusPrefix;
+            _statusArgLiteral = null;
+            _statusArgKey = _contentType switch
             {
-                PreviewContentType.Model => "模型",
-                PreviewContentType.Particle => "粒子",
-                PreviewContentType.UGUI => "UGUI",
-                _ => "-"
+                PreviewContentType.Model => ViewportXLocalization.Key.ContentTypeModel,
+                PreviewContentType.Particle => ViewportXLocalization.Key.ContentTypeParticle,
+                PreviewContentType.UGUI => ViewportXLocalization.Key.ContentTypeUGUI,
+                _ => ViewportXLocalization.Key.ContentTypeUnknown
             };
-            _statusLabel.text = $"状态：{status}";
+            ApplyStatusFromState();
         }
 
         private void OnInspectorUpdate()
         {
-            _previewSurface?.MarkDirtyRepaint();
+            if (!_windowIsVisible)
+            {
+                return;
+            }
+
+            if (_displayMode == PreviewDisplayMode.AssetPreview
+                && _assetPreviewSource != null
+                && _assetPreviewSourceInstanceId != 0
+                && AssetPreview.IsLoadingAssetPreview(_assetPreviewSourceInstanceId))
+            {
+                _previewSurface?.MarkDirtyRepaint();
+            }
         }
 
         private void DestroyPreviewObject(ref GameObject go)

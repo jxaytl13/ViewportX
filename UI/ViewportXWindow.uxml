@@ -22,23 +22,5 @@
         <ui:VisualElement name="Preview" style="flex-grow: 1;">
             <ui:Image name="preview-image" class="preview-image" style="flex-grow: 1;" />
         </ui:VisualElement>
-        <ui:VisualElement name="settings-container" class="settings-overlay" style="display: none; transition-duration: 0.2s; position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); flex-grow: 1; justify-content: center; align-items: center; width: 100%; height: 100%;">
-            <ui:VisualElement name="settings-window" class="settings-window" style="position: relative; left: auto; top: auto; background-color: rgb(26, 26, 26); border-radius: 4px; min-width: 320px; min-height: auto; padding: 20px; width: 500px; flex-shrink: 0; height: 400px; right: auto; bottom: auto; flex-grow: 0; flex-direction: column;">
-                <ui:Label name="version-label" class="version-label" style="-unity-text-align: middle-left; flex-shrink: 0; height: 20px; flex-grow: 0;" />
-                <ui:Label name="author-label" class="info-text" style="-unity-text-align: middle-left; flex-shrink: 0; height: 20px; flex-grow: 0;" />
-                <ui:Button name="author-link-button" class="link-button button" style="flex-shrink: 0; height: 30px;" />
-                <ui:Button name="document-link-button" class="link-button button" style="flex-shrink: 0; height: 30px;" />
-                <ui:VisualElement class="language-container" style="justify-content: space-between; flex-direction: row; align-items: center; height: 30px; flex-shrink: 0;">
-                    <ui:Label name="language-label" text="Language:" style="min-width: 50px; -unity-text-align: middle-left; margin-right: 30px; height: 30px;" />
-                    <ui:DropdownField name="language-dropdown" style="flex-shrink: 1; flex-grow: 0; height: auto;" />
-                </ui:VisualElement>
-                <ui:ScrollView name="settings-scroll" class="settings-scroll" style="flex-grow: 1; min-height: 0;">
-                    <ui:Label name="config-title-label" class="tools-label" />
-                    <ui:Label name="config-path-label" class="tool-introduction" style="white-space: normal;" />
-                    <ui:Label name="tools-label" class="tools-label" />
-                    <ui:Label name="tool-introduction-label" class="tool-introduction" style="white-space: normal; -unity-text-align: upper-left;" />
-                </ui:ScrollView>
-            </ui:VisualElement>
-        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
