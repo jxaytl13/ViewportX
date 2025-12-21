@@ -11,7 +11,6 @@ using UnityEngine.UI;
 using UnityEngine.UIElements;
 
 using Button = UnityEngine.UIElements.Button;
-using Toggle = UnityEngine.UIElements.Toggle;
 
 namespace PrefabPreviewer
 {
@@ -64,9 +63,30 @@ namespace PrefabPreviewer
                 }
             }
 
+            static void SetToggleButtonState(Button button, bool active)
+            {
+                if (button == null)
+                {
+                    return;
+                }
+
+                if (active)
+                {
+                    button.AddToClassList("view-button--active");
+                }
+                else
+                {
+                    button.RemoveFromClassList("view-button--active");
+                }
+            }
+
             SetButtonState(_viewXButton, ViewAxis.X);
             SetButtonState(_viewYButton, ViewAxis.Y);
             SetButtonState(_viewZButton, ViewAxis.Z);
+
+            SetToggleButtonState(_gridButton, _gridVisible);
+            SetToggleButtonState(_lightingButton, _lightingEnabled);
+            SetToggleButtonState(_autoRotateButton, _autoRotate);
         }
 
         private void PersistViewAxis()
@@ -94,26 +114,26 @@ namespace PrefabPreviewer
         private void ToggleGridVisibility(bool visible)
         {
             _gridVisible = visible;
-            _gridToggle?.SetValueWithoutNotify(visible);
             if (_config != null)
             {
                 _config.gridVisible = visible;
                 SaveConfig();
             }
             UpdateGridState();
+            UpdateViewButtonsState();
             _previewSurface?.MarkDirtyRepaint();
         }
 
         private void ToggleLighting(bool enabled)
         {
             _lightingEnabled = enabled;
-            _lightingToggle?.SetValueWithoutNotify(enabled);
             if (_config != null)
             {
                 _config.lightingEnabled = enabled;
                 SaveConfig();
             }
             ApplyLightingState();
+            UpdateViewButtonsState();
             _previewSurface?.MarkDirtyRepaint();
         }
 
@@ -314,9 +334,9 @@ namespace PrefabPreviewer
         private PreviewSurfaceElement _previewSurface;
         private Label _selectionLabel;
         private Label _statusLabel;
-        private Toggle _autoRotateToggle;
-        private Toggle _gridToggle;
-        private Toggle _lightingToggle;
+        private Button _autoRotateButton;
+        private Button _gridButton;
+        private Button _lightingButton;
         private Button _playButton;
         private Button _restartButton;
         private Button _frameButton;
@@ -519,9 +539,9 @@ namespace PrefabPreviewer
 
             if (_playButton != null) _playButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipPlayPauseParticles, chinese);
             if (_restartButton != null) _restartButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRestartParticles, chinese);
-            if (_gridToggle != null) _gridToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipGrid, chinese);
-            if (_autoRotateToggle != null) _autoRotateToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipAutoRotate, chinese);
-            if (_lightingToggle != null) _lightingToggle.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipLighting, chinese);
+            if (_gridButton != null) _gridButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipGrid, chinese);
+            if (_autoRotateButton != null) _autoRotateButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipAutoRotate, chinese);
+            if (_lightingButton != null) _lightingButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipLighting, chinese);
 
             if (_refreshButton != null) _refreshButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRefreshSelection, chinese);
             if (_resetButton != null) _resetButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipResetView, chinese);
@@ -636,11 +656,11 @@ namespace PrefabPreviewer
 
             _selectionLabel = rootVisualElement.Q<Label>("selection-label");
             _statusLabel = rootVisualElement.Q<Label>("status-label");
-            _autoRotateToggle = rootVisualElement.Q<Toggle>("tgl-auto-rotate");
-            _gridToggle = rootVisualElement.Q<Toggle>("tgl-grid");
-            _lightingToggle = rootVisualElement.Q<Toggle>("tgl-lighting");
             _playButton = rootVisualElement.Q<Button>("btn-play");
             _restartButton = rootVisualElement.Q<Button>("btn-restart");
+            _gridButton = rootVisualElement.Q<Button>("btn-grid");
+            _autoRotateButton = rootVisualElement.Q<Button>("btn-auto-rotate");
+            _lightingButton = rootVisualElement.Q<Button>("btn-lighting");
             _frameButton = rootVisualElement.Q<Button>("btn-frame");
             _resetButton = rootVisualElement.Q<Button>("btn-reset");
             _refreshButton = rootVisualElement.Q<Button>("btn-refresh");
@@ -655,17 +675,14 @@ namespace PrefabPreviewer
             _resetButton?.RegisterCallback<ClickEvent>(_ => ResetView());
             _restartButton?.RegisterCallback<ClickEvent>(_ => RestartParticles());
             _playButton?.RegisterCallback<ClickEvent>(_ => ToggleParticlePlay());
-            _autoRotateToggle?.RegisterCallback<ChangeEvent<bool>>(evt => _autoRotate = evt.newValue);
-            if (_gridToggle != null)
+            _gridButton?.RegisterCallback<ClickEvent>(_ => ToggleGridVisibility(!_gridVisible));
+            _lightingButton?.RegisterCallback<ClickEvent>(_ => ToggleLighting(!_lightingEnabled));
+            _autoRotateButton?.RegisterCallback<ClickEvent>(_ =>
             {
-                _gridToggle.value = _gridVisible;
-                _gridToggle.RegisterValueChangedCallback(evt => ToggleGridVisibility(evt.newValue));
-            }
-            if (_lightingToggle != null)
-            {
-                _lightingToggle.value = _lightingEnabled;
-                _lightingToggle.RegisterValueChangedCallback(evt => ToggleLighting(evt.newValue));
-            }
+                _autoRotate = !_autoRotate;
+                UpdateViewButtonsState();
+                _previewSurface?.MarkDirtyRepaint();
+            });
 
             _settingsOverlay = new ViewportXSettingsOverlay(
                 AboutVersion,
@@ -1382,11 +1399,8 @@ namespace PrefabPreviewer
                 return;
             }
 
-            if (_autoRotateToggle != null)
-            {
-                _autoRotateToggle.value = false;
-            }
             _autoRotate = false;
+            UpdateViewButtonsState();
 
             _panOffset = Vector3.zero;
             SetOrbitAnglesForAxis(axis);
@@ -1648,11 +1662,11 @@ namespace PrefabPreviewer
             _frameButton?.SetEnabled(prefabMode);
             _resetButton?.SetEnabled(prefabMode);
             var allowAutoRotate = prefabMode && _contentType != PreviewContentType.UGUI;
-            _autoRotateToggle?.SetEnabled(allowAutoRotate);
-            if (!allowAutoRotate && _autoRotateToggle != null)
+            _autoRotateButton?.SetEnabled(allowAutoRotate);
+            if (!allowAutoRotate && _autoRotateButton != null)
             {
-                _autoRotateToggle.value = false;
                 _autoRotate = false;
+                UpdateViewButtonsState();
             }
             var particleControls = prefabMode && _contentType == PreviewContentType.Particle;
             _restartButton?.SetEnabled(particleControls);
