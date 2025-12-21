@@ -83,10 +83,13 @@ namespace PrefabPreviewer
             SetButtonState(_viewXButton, ViewAxis.X);
             SetButtonState(_viewYButton, ViewAxis.Y);
             SetButtonState(_viewZButton, ViewAxis.Z);
+            SetToggleButtonState(_resetButton, _currentViewAxis == ViewAxis.None);
 
             SetToggleButtonState(_gridButton, _gridVisible);
             SetToggleButtonState(_lightingButton, _lightingEnabled);
             SetToggleButtonState(_autoRotateButton, _autoRotate);
+
+            UpdateToolbarIcons();
         }
 
         private void PersistViewAxis()
@@ -108,7 +111,9 @@ namespace PrefabPreviewer
                 return;
             }
 
-            _currentViewAxis = (ViewAxis)_config.viewAxis;
+            _currentViewAxis = Enum.IsDefined(typeof(ViewAxis), _config.viewAxis)
+                ? (ViewAxis)_config.viewAxis
+                : ViewAxis.Z;
         }
 
         private void ToggleGridVisibility(bool visible)
@@ -325,9 +330,10 @@ namespace PrefabPreviewer
 
         private enum ViewAxis
         {
-            X,
-            Y,
-            Z
+            None = -1,
+            X = 0,
+            Y = 1,
+            Z = 2
         }
 
         private VisualElement _previewHost;
@@ -355,6 +361,37 @@ namespace PrefabPreviewer
         private bool _isPanning;
         private Vector2 _lastPointerPos;
         private Vector2 _lastPanPointerPos;
+
+        private string _toolbarIconDirectory;
+        private Texture2D _iconAutoRotateN;
+        private Texture2D _iconAutoRotateS;
+        private Texture2D _iconGridN;
+        private Texture2D _iconGridS;
+        private Texture2D _iconLightN;
+        private Texture2D _iconLightS;
+        private Texture2D _iconPlayN;
+        private Texture2D _iconPlayS;
+        private Texture2D _iconReplayN;
+        private Texture2D _iconReplayS;
+        private Texture2D _iconBreakN;
+        private Texture2D _iconBreakS;
+        private Texture2D _iconXyzN;
+        private Texture2D _iconXyzS;
+        private Texture2D _iconFocusN;
+        private Texture2D _iconFocusS;
+        private Texture2D _iconSettingN;
+        private Texture2D _iconSettingS;
+        private Texture2D _iconXN;
+        private Texture2D _iconXS;
+        private Texture2D _iconYN;
+        private Texture2D _iconYS;
+        private Texture2D _iconZN;
+        private Texture2D _iconZS;
+
+        private bool _restartHovered;
+        private bool _refreshHovered;
+        private bool _frameHovered;
+        private bool _settingsHovered;
 
         private const string AboutVersion = "1.0.0";
         private const string AboutAuthor = "T·L";
@@ -684,6 +721,8 @@ namespace PrefabPreviewer
                 _previewSurface?.MarkDirtyRepaint();
             });
 
+            InitializeToolbarIcons(uxmlPath);
+
             _settingsOverlay = new ViewportXSettingsOverlay(
                 AboutVersion,
                 AboutAuthor,
@@ -731,6 +770,165 @@ namespace PrefabPreviewer
             UpdateGridState();
             UpdateViewButtonsState();
             RefreshSelection();
+        }
+
+        private void InitializeToolbarIcons(string uxmlPath)
+        {
+            if (string.IsNullOrEmpty(uxmlPath))
+            {
+                return;
+            }
+
+            var directory = Path.GetDirectoryName(uxmlPath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return;
+            }
+
+            _toolbarIconDirectory = directory.Replace('\\', '/');
+            _restartHovered = false;
+            _refreshHovered = false;
+            _frameHovered = false;
+            _settingsHovered = false;
+
+            _iconAutoRotateN = LoadToolbarIcon("AutoRotate_N.png");
+            _iconAutoRotateS = LoadToolbarIcon("AutoRotate_S.png");
+            _iconGridN = LoadToolbarIcon("Grid_N.png");
+            _iconGridS = LoadToolbarIcon("Grid_S.png");
+            _iconLightN = LoadToolbarIcon("Light_N.png");
+            _iconLightS = LoadToolbarIcon("Light_S.png");
+            _iconPlayN = LoadToolbarIcon("Play_N.png");
+            _iconPlayS = LoadToolbarIcon("Play_S.png");
+            _iconReplayN = LoadToolbarIcon("RePlay_N.png");
+            _iconReplayS = LoadToolbarIcon("RePlay_S.png");
+            _iconBreakN = LoadToolbarIcon("Break_N.png");
+            _iconBreakS = LoadToolbarIcon("Break_S.png");
+            _iconXyzN = LoadToolbarIcon("XYZ_N.png");
+            _iconXyzS = LoadToolbarIcon("XYZ_S.png");
+            _iconFocusN = LoadToolbarIcon("Focus_N.png");
+            _iconFocusS = LoadToolbarIcon("Focus_S.png");
+            _iconSettingN = LoadToolbarIcon("Setting_N.png");
+            _iconSettingS = LoadToolbarIcon("Setting_S.png");
+            _iconXN = LoadToolbarIcon("X_N.png");
+            _iconXS = LoadToolbarIcon("X_S.png");
+            _iconYN = LoadToolbarIcon("Y_N.png");
+            _iconYS = LoadToolbarIcon("Y_S.png");
+            _iconZN = LoadToolbarIcon("Z_N.png");
+            _iconZS = LoadToolbarIcon("Z_S.png");
+
+            SetToolbarButtonBaseStyle(_playButton);
+            SetToolbarButtonBaseStyle(_restartButton);
+            SetToolbarButtonBaseStyle(_gridButton);
+            SetToolbarButtonBaseStyle(_autoRotateButton);
+            SetToolbarButtonBaseStyle(_lightingButton);
+            SetToolbarButtonBaseStyle(_refreshButton);
+            SetToolbarButtonBaseStyle(_resetButton);
+            SetToolbarButtonBaseStyle(_viewXButton);
+            SetToolbarButtonBaseStyle(_viewYButton);
+            SetToolbarButtonBaseStyle(_viewZButton);
+            SetToolbarButtonBaseStyle(_frameButton);
+            SetToolbarButtonBaseStyle(_settingsButton);
+
+            RegisterHoverState(_restartButton, hovered => _restartHovered = hovered);
+            RegisterHoverState(_refreshButton, hovered => _refreshHovered = hovered);
+            RegisterHoverState(_frameButton, hovered => _frameHovered = hovered);
+            RegisterHoverState(_settingsButton, hovered => _settingsHovered = hovered);
+
+            UpdateToolbarIcons();
+        }
+
+        private Texture2D LoadToolbarIcon(string fileName)
+        {
+            if (string.IsNullOrEmpty(_toolbarIconDirectory) || string.IsNullOrEmpty(fileName))
+            {
+                return null;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>($"{_toolbarIconDirectory}/{fileName}");
+        }
+
+        private static void SetToolbarButtonBaseStyle(Button button)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.text = string.Empty;
+            button.style.unityBackgroundScaleMode = ScaleMode.ScaleToFit;
+        }
+
+        private void SetToolbarButtonIcon(Button button, Texture2D icon)
+        {
+            if (button == null || icon == null)
+            {
+                return;
+            }
+
+            button.style.backgroundImage = new StyleBackground(icon);
+        }
+
+        private void RegisterPressIconSwap(Button button, Texture2D normal, Texture2D pressed)
+        {
+            if (button == null || normal == null || pressed == null)
+            {
+                return;
+            }
+
+            SetToolbarButtonIcon(button, normal);
+
+            button.RegisterCallback<PointerDownEvent>(_ => SetToolbarButtonIcon(button, pressed));
+            button.RegisterCallback<PointerUpEvent>(_ => SetToolbarButtonIcon(button, normal));
+            button.RegisterCallback<PointerLeaveEvent>(_ => SetToolbarButtonIcon(button, normal));
+        }
+
+        private void RegisterHoverState(Button button, Action<bool> setHovered)
+        {
+            if (button == null || setHovered == null)
+            {
+                return;
+            }
+
+            button.RegisterCallback<PointerEnterEvent>(_ =>
+            {
+                setHovered(true);
+                UpdateToolbarIcons();
+            });
+            button.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                setHovered(false);
+                UpdateToolbarIcons();
+            });
+        }
+
+        private void UpdateToolbarIcons()
+        {
+            SetToolbarButtonIcon(_gridButton, _gridVisible ? _iconGridS : _iconGridN);
+            SetToolbarButtonIcon(_lightingButton, _lightingEnabled ? _iconLightS : _iconLightN);
+            SetToolbarButtonIcon(_autoRotateButton, _autoRotate ? _iconAutoRotateS : _iconAutoRotateN);
+
+            var particlePlaying = _contentType == PreviewContentType.Particle && _particlePlaying;
+            if (_playButton != null)
+            {
+                if (particlePlaying)
+                {
+                    _playButton.AddToClassList("view-button--active");
+                }
+                else
+                {
+                    _playButton.RemoveFromClassList("view-button--active");
+                }
+            }
+            SetToolbarButtonIcon(_playButton, particlePlaying ? _iconPlayS : _iconPlayN);
+            SetToolbarButtonIcon(_restartButton, _restartHovered ? _iconReplayS : _iconReplayN);
+            SetToolbarButtonIcon(_refreshButton, _refreshHovered ? _iconBreakS : _iconBreakN);
+            SetToolbarButtonIcon(_resetButton, _currentViewAxis == ViewAxis.None ? _iconXyzS : _iconXyzN);
+            SetToolbarButtonIcon(_frameButton, _frameHovered ? _iconFocusS : _iconFocusN);
+            SetToolbarButtonIcon(_settingsButton, _settingsHovered ? _iconSettingS : _iconSettingN);
+
+            SetToolbarButtonIcon(_viewXButton, _currentViewAxis == ViewAxis.X ? _iconXS : _iconXN);
+            SetToolbarButtonIcon(_viewYButton, _currentViewAxis == ViewAxis.Y ? _iconYS : _iconYN);
+            SetToolbarButtonIcon(_viewZButton, _currentViewAxis == ViewAxis.Z ? _iconZS : _iconZN);
         }
 
         private void RegisterPointerEvents()
@@ -1174,6 +1372,38 @@ namespace PrefabPreviewer
             _previewUtility.camera.transform.LookAt(target);
         }
 
+        private void UpdatePreviewLightingForCamera()
+        {
+            if (!_lightingEnabled || _previewUtility == null)
+            {
+                return;
+            }
+
+            var cam = _previewUtility.camera;
+            if (cam == null)
+            {
+                return;
+            }
+
+            var lights = _previewUtility.lights;
+            if (lights == null || lights.Length == 0)
+            {
+                return;
+            }
+
+            var cameraRotation = cam.transform.rotation;
+
+            if (lights[0] != null)
+            {
+                lights[0].transform.rotation = cameraRotation * Quaternion.Euler(35f, 35f, 0f);
+            }
+
+            if (lights.Length > 1 && lights[1] != null)
+            {
+                lights[1].transform.rotation = cameraRotation * Quaternion.Euler(-20f, 200f, 0f);
+            }
+        }
+
         private void FrameContent(bool recenter = false)
         {
             if (_previewInstance == null)
@@ -1214,6 +1444,9 @@ namespace PrefabPreviewer
         private void ResetView()
         {
             _orbitAngles = new Vector2(15f, -120f);
+            _currentViewAxis = ViewAxis.None;
+            PersistViewAxis();
+            UpdateViewButtonsState();
             FrameContent(true);
         }
 
@@ -1222,6 +1455,13 @@ namespace PrefabPreviewer
             if (_displayMode != PreviewDisplayMode.PrefabScene || _contentType == PreviewContentType.UGUI)
             {
                 return;
+            }
+
+            if (_currentViewAxis != ViewAxis.None)
+            {
+                _currentViewAxis = ViewAxis.None;
+                PersistViewAxis();
+                UpdateViewButtonsState();
             }
 
             _orbitAngles.x = Mathf.Clamp(_orbitAngles.x + delta.y * 0.2f, -80f, 80f);
@@ -1352,10 +1592,8 @@ namespace PrefabPreviewer
                 return;
             }
 
-            var chinese = _uiLanguage == UiLanguage.Chinese;
-            _playButton.text = _particlePlaying
-                ? ViewportXLocalization.Get(ViewportXLocalization.Key.PlayButtonPause, chinese)
-                : ViewportXLocalization.Get(ViewportXLocalization.Key.PlayButtonPlay, chinese);
+            _playButton.text = string.Empty;
+            UpdateToolbarIcons();
         }
 
         private Bounds CalculateRendererBounds(GameObject go)
@@ -1482,6 +1720,7 @@ namespace PrefabPreviewer
             }
 
             ConfigureCamera();
+            UpdatePreviewLightingForCamera();
             _previewUtility.BeginPreview(rect, GUIStyle.none);
             _previewUtility.camera.Render();
             var tex = _previewUtility.EndPreview();
@@ -1497,7 +1736,25 @@ namespace PrefabPreviewer
             }
 
             var uv = _textureHasCustomUv ? _textureUv : new Rect(0f, 0f, 1f, 1f);
-            GUI.DrawTextureWithTexCoords(rect, _texturePreview, uv, true);
+
+            var sourceWidth = Mathf.Max(_texturePreview.width * uv.width, 1f);
+            var sourceHeight = Mathf.Max(_texturePreview.height * uv.height, 1f);
+            var sourceAspect = sourceWidth / sourceHeight;
+            var rectAspect = rect.width / rect.height;
+
+            Rect drawRect;
+            if (rectAspect > sourceAspect)
+            {
+                var width = rect.height * sourceAspect;
+                drawRect = new Rect(rect.x + (rect.width - width) * 0.5f, rect.y, width, rect.height);
+            }
+            else
+            {
+                var height = rect.width / sourceAspect;
+                drawRect = new Rect(rect.x, rect.y + (rect.height - height) * 0.5f, rect.width, height);
+            }
+
+            GUI.DrawTextureWithTexCoords(drawRect, _texturePreview, uv, true);
         }
 
         private void DrawAssetPreview(Rect rect)
