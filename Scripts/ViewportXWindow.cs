@@ -540,6 +540,7 @@ namespace PrefabPreviewer
         private Scene _uiPreviewScene;
         private Vector2 _uiCanvasSize = new(1920f, 1080f);
         private float _uiZoom = 1f;
+        private Vector3 _uiOriginalScale = Vector3.one; // 预制体原始缩放
         private Vector2 _uiPanOffset = Vector2.zero;
 
         private Vector2 _orbitAngles = new(15f, -120f);
@@ -1457,7 +1458,8 @@ namespace PrefabPreviewer
                 _particlePlaying = true;
             }
 
-            // 重置缩放和平移
+            // 保存原始缩放，重置缩放系数和平移
+            _uiOriginalScale = _previewInstance != null ? _previewInstance.transform.localScale : Vector3.one;
             _uiZoom = 1f;
             _uiPanOffset = Vector2.zero;
 
@@ -1793,7 +1795,8 @@ namespace PrefabPreviewer
         {
             if (_previewInstance == null) return;
 
-            _previewInstance.transform.localScale = Vector3.one * _uiZoom;
+            // 使用乘法：原始缩放 * 缩放系数
+            _previewInstance.transform.localScale = _uiOriginalScale * _uiZoom;
         }
 
         private void CacheParticleSystems()
