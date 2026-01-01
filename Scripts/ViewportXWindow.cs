@@ -532,6 +532,14 @@ namespace PrefabPreviewer
         private UnityEngine.Object _currentAsset;
         private Bounds _contentBounds;
 
+        // UGUI 预览专用
+        private Camera _uiPreviewCamera;
+        private RenderTexture _uiRenderTexture;
+        private GameObject _uiPreviewRoot;
+        private Vector2 _uiCanvasSize = new(1920f, 1080f);
+        private float _uiZoom = 1f;
+        private Vector2 _uiPanOffset = Vector2.zero;
+
         private Vector2 _orbitAngles = new(15f, -120f);
         private float _distance = 5f;
         private bool _autoRotate;
@@ -1282,8 +1290,30 @@ namespace PrefabPreviewer
                 return PreviewContentType.None;
             }
 
+            // 检测 Canvas 或 RectTransform（UGUI 元素）
             if (root.GetComponentInChildren<Canvas>(true) != null)
             {
+                return PreviewContentType.UGUI;
+            }
+
+            // 检测是否有 RectTransform（UI 预制体通常没有 Canvas，但有 RectTransform）
+            if (root.GetComponent<RectTransform>() != null)
+            {
+                // 进一步检测是否有 UI 组件（Image、RawImage、Text 等）
+                var graphicType = Type.GetType("UnityEngine.UI.Graphic, UnityEngine.UI");
+                if (graphicType != null && root.GetComponentInChildren(graphicType, true) != null)
+                {
+                    return PreviewContentType.UGUI;
+                }
+
+                // 检测 TextMeshPro
+                var tmpType = Type.GetType("TMPro.TMP_Text, Unity.TextMeshPro");
+                if (tmpType != null && root.GetComponentInChildren(tmpType, true) != null)
+                {
+                    return PreviewContentType.UGUI;
+                }
+
+                // 有 RectTransform 但没有 UI 组件，也当作 UGUI 处理
                 return PreviewContentType.UGUI;
             }
 
@@ -1302,17 +1332,49 @@ namespace PrefabPreviewer
             _previewUtility.camera.orthographic = false;
         }
 
+        /// <summary>
+        /// 设置 UGUI 预览环境
+        /// 使用独立的 Camera + Canvas + RenderTexture 实现真正的 UI 渲染
+        /// </summary>
         private void SetupUiPreview()
         {
-            CleanupUiRoot();
+            CleanupUiPreview();
 
-            var components = new List<Type>
-            {
-                typeof(RectTransform),
-                typeof(Canvas)
-            };
+            // 固定分辨率 1920x1080
+            _uiCanvasSize = new Vector2(1920f, 1080f);
 
-            // Optional (UGUI package). Keep ViewportX loadable even if UnityEngine.UI is not present.
+            // 先创建 RenderTexture
+            _uiRenderTexture = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32);
+            _uiRenderTexture.antiAliasing = 4;
+            _uiRenderTexture.Create();
+
+            // 创建预览根对象
+            _uiPreviewRoot = EditorUtility.CreateGameObjectWithHideFlags(
+                "_UIPreviewRoot",
+                HideFlags.HideAndDontSave);
+
+            // 创建预览相机
+            var cameraGo = EditorUtility.CreateGameObjectWithHideFlags(
+                "_UIPreviewCamera",
+                HideFlags.HideAndDontSave,
+                typeof(Camera));
+            cameraGo.transform.SetParent(_uiPreviewRoot.transform, false);
+
+            _uiPreviewCamera = cameraGo.GetComponent<Camera>();
+            _uiPreviewCamera.clearFlags = CameraClearFlags.SolidColor;
+            _uiPreviewCamera.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+            _uiPreviewCamera.orthographic = true;
+            _uiPreviewCamera.orthographicSize = 5f;
+            _uiPreviewCamera.nearClipPlane = 0.1f;
+            _uiPreviewCamera.farClipPlane = 1000f;
+            _uiPreviewCamera.depth = -100;
+            _uiPreviewCamera.enabled = false; // 手动渲染
+            _uiPreviewCamera.targetTexture = _uiRenderTexture;
+            _uiPreviewCamera.cullingMask = 1 << 5; // UI layer
+
+            // 创建 Canvas
+            var components = new List<Type> { typeof(RectTransform), typeof(Canvas) };
+
             var canvasScalerType = Type.GetType("UnityEngine.UI.CanvasScaler, UnityEngine.UI");
             if (canvasScalerType != null)
             {
@@ -1329,40 +1391,97 @@ namespace PrefabPreviewer
                 "_UIPreviewCanvas",
                 HideFlags.HideAndDontSave,
                 components.ToArray());
-
-            if (_previewUtility != null)
-            {
-                SceneManager.MoveGameObjectToScene(canvasGo, _previewUtility.camera.scene);
-            }
+            canvasGo.transform.SetParent(_uiPreviewRoot.transform, false);
+            canvasGo.layer = 5; // UI layer
             _uiCanvasRoot = canvasGo;
 
             var canvas = canvasGo.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.worldCamera = _previewUtility.camera;
-            canvas.planeDistance = 1f;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = _uiPreviewCamera;
+            canvas.planeDistance = 100f;
 
-            var rect = canvasGo.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(1920f, 1080f);
-            rect.localScale = Vector3.one * 0.0025f;
-
-            ApplyCanvasScalerSettings(canvasGo, new Vector2(1920, 1080));
-
-            if (_previewInstance != null)
+            // 配置 CanvasScaler
+            if (canvasScalerType != null)
             {
-                _previewInstance.transform.SetParent(canvas.transform, false);
+                var scaler = canvasGo.GetComponent(canvasScalerType);
+                if (scaler != null)
+                {
+                    var uiScaleModeProperty = canvasScalerType.GetProperty("uiScaleMode", BindingFlags.Instance | BindingFlags.Public);
+                    var referenceResolutionProperty = canvasScalerType.GetProperty("referenceResolution", BindingFlags.Instance | BindingFlags.Public);
+                    var screenMatchModeProperty = canvasScalerType.GetProperty("screenMatchMode", BindingFlags.Instance | BindingFlags.Public);
+                    var matchWidthOrHeightProperty = canvasScalerType.GetProperty("matchWidthOrHeight", BindingFlags.Instance | BindingFlags.Public);
+
+                    // ScaleMode.ScaleWithScreenSize = 1
+                    uiScaleModeProperty?.SetValue(scaler, 1);
+                    referenceResolutionProperty?.SetValue(scaler, _uiCanvasSize);
+                    // ScreenMatchMode.MatchWidthOrHeight = 0
+                    screenMatchModeProperty?.SetValue(scaler, 0);
+                    matchWidthOrHeightProperty?.SetValue(scaler, 0.5f);
+                }
             }
 
-            _contentBounds = new Bounds(Vector3.zero, new Vector3(1f, 1f, 0.1f));
-            _previewUtility.camera.orthographic = true;
-            _previewUtility.camera.orthographicSize = 1.2f;
-            _previewUtility.camera.transform.position = new Vector3(0f, 0f, -4f);
-            _previewUtility.camera.transform.rotation = Quaternion.identity;
-            UpdateCameraClipPlanes();
+            // 将预制体实例放入 Canvas
+            if (_previewInstance != null)
+            {
+                // 设置所有子对象的 layer 为 UI
+                SetLayerRecursively(_previewInstance, 5);
+                _previewInstance.transform.SetParent(canvas.transform, false);
+
+                // 重置位置到中心，避免预制体原始坐标导致的偏移
+                var instanceRect = _previewInstance.GetComponent<RectTransform>();
+                if (instanceRect != null)
+                {
+                    instanceRect.anchoredPosition = Vector2.zero;
+                    instanceRect.localPosition = Vector3.zero;
+                }
+            }
+
+            // 重置缩放和平移
+            _uiZoom = 1f;
+            _uiPanOffset = Vector2.zero;
+
+            // 设置内容边界
+            _contentBounds = new Bounds(Vector3.zero, new Vector3(_uiCanvasSize.x, _uiCanvasSize.y, 1f));
+        }
+
+        /// <summary>
+        /// 递归设置 GameObject 及其所有子对象的 layer
+        /// </summary>
+        private void SetLayerRecursively(GameObject go, int layer)
+        {
+            if (go == null) return;
+            go.layer = layer;
+            foreach (Transform child in go.transform)
+            {
+                SetLayerRecursively(child.gameObject, layer);
+            }
+        }
+
+        /// <summary>
+        /// 清理 UGUI 预览资源
+        /// </summary>
+        private void CleanupUiPreview()
+        {
+            if (_uiRenderTexture != null)
+            {
+                _uiRenderTexture.Release();
+                DestroyImmediate(_uiRenderTexture);
+                _uiRenderTexture = null;
+            }
+
+            if (_uiPreviewRoot != null)
+            {
+                DestroyImmediate(_uiPreviewRoot);
+                _uiPreviewRoot = null;
+            }
+
+            _uiPreviewCamera = null;
+            _uiCanvasRoot = null;
         }
 
         private void CleanupUiRoot()
         {
-            DestroyPreviewObject(ref _uiCanvasRoot);
+            CleanupUiPreview();
         }
 
         private void CleanupPreview()
@@ -1516,16 +1635,26 @@ namespace PrefabPreviewer
                 return;
             }
 
-            _contentBounds = _contentType == PreviewContentType.UGUI
-                ? new Bounds(Vector3.zero, new Vector3(1f, 1f, 0.1f))
-                : CalculateRendererBounds(_previewInstance);
+            // UGUI 使用独立的帧定位逻辑
+            if (_contentType == PreviewContentType.UGUI)
+            {
+                if (recenter)
+                {
+                    _uiZoom = 1f;
+                    _uiPanOffset = Vector2.zero;
+                }
+                _previewSurface?.MarkDirtyRepaint();
+                return;
+            }
+
+            _contentBounds = CalculateRendererBounds(_previewInstance);
 
             if (recenter)
             {
                 _panOffset = Vector3.zero;
             }
 
-            if (!_usePerspectiveProjection && _contentType != PreviewContentType.UGUI)
+            if (!_usePerspectiveProjection)
             {
                 UpdateOrthographicSizeForBounds();
                 UpdateCameraClipPlanes();
@@ -1591,15 +1720,10 @@ namespace PrefabPreviewer
 
             if (_contentType == PreviewContentType.UGUI)
             {
-                var scale = _uiCanvasRoot != null ? _uiCanvasRoot.transform.localScale : Vector3.one * 0.0025f;
-                var factor = 1f + delta;
-                factor = Mathf.Clamp(factor, 0.5f, 1.5f);
-                scale *= factor;
-                var clamped = Mathf.Clamp(scale.x, 0.0005f, 0.02f);
-                if (_uiCanvasRoot != null)
-                {
-                    _uiCanvasRoot.transform.localScale = Vector3.one * clamped;
-                }
+                // UGUI 使用独立的缩放系统
+                var factor = 1f - delta;
+                _uiZoom *= factor;
+                _uiZoom = Mathf.Clamp(_uiZoom, 0.1f, 10f);
             }
             else
             {
@@ -1788,7 +1912,22 @@ namespace PrefabPreviewer
 
         private void Pan(Vector2 screenDelta)
         {
-            if (_displayMode != PreviewDisplayMode.PrefabScene || _previewUtility == null || _previewSize.x <= 0f || _previewSize.y <= 0f)
+            if (_displayMode != PreviewDisplayMode.PrefabScene || _previewSize.x <= 0f || _previewSize.y <= 0f)
+            {
+                return;
+            }
+
+            if (_contentType == PreviewContentType.UGUI)
+            {
+                // UGUI 使用独立的平移系统
+                // 将屏幕像素转换为 Canvas 坐标
+                var pixelsPerUnit = _previewSize.y / (_uiCanvasSize.y / _uiZoom);
+                _uiPanOffset += new Vector2(screenDelta.x / pixelsPerUnit, -screenDelta.y / pixelsPerUnit);
+                _previewSurface?.MarkDirtyRepaint();
+                return;
+            }
+
+            if (_previewUtility == null)
             {
                 return;
             }
@@ -1799,44 +1938,42 @@ namespace PrefabPreviewer
                 return;
             }
 
-            if (_contentType == PreviewContentType.UGUI)
+            var distance = Mathf.Max(_distance, 0.1f);
+            var viewHeight = 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * distance;
+            if (cam.orthographic)
             {
-                // 对于 UGUI，沿平面平移
-                var factor = 0.0025f;
-                _panOffset += new Vector3(-screenDelta.x * factor, screenDelta.y * factor, 0f);
+                viewHeight = cam.orthographicSize * 2f;
             }
-            else
-            {
-                var distance = Mathf.Max(_distance, 0.1f);
-                var viewHeight = 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * distance;
-                if (cam.orthographic)
-                {
-                    viewHeight = cam.orthographicSize * 2f;
-                }
 
-                var viewWidth = viewHeight * cam.aspect;
-                var right = cam.transform.right;
-                var up = cam.transform.up;
+            var viewWidth = viewHeight * cam.aspect;
+            var right = cam.transform.right;
+            var up = cam.transform.up;
 
-                var offset = (-screenDelta.x / _previewSize.x) * viewWidth * right
-                             + (screenDelta.y / _previewSize.y) * viewHeight * up;
-                _panOffset += offset;
-            }
+            var offset = (-screenDelta.x / _previewSize.x) * viewWidth * right
+                         + (screenDelta.y / _previewSize.y) * viewHeight * up;
+            _panOffset += offset;
 
             _previewSurface?.MarkDirtyRepaint();
         }
 
         private void DrawPrefabScene(Rect rect)
         {
-            if (_previewUtility == null)
-            {
-                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
-                return;
-            }
-
             if (_previewInstance == null)
             {
                 DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPrefab, _uiLanguage == UiLanguage.Chinese));
+                return;
+            }
+
+            // UGUI 使用独立的渲染系统
+            if (_contentType == PreviewContentType.UGUI)
+            {
+                DrawUguiPreview(rect);
+                return;
+            }
+
+            if (_previewUtility == null)
+            {
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1846,6 +1983,46 @@ namespace PrefabPreviewer
             _previewUtility.camera.Render();
             var tex = _previewUtility.EndPreview();
             GUI.DrawTexture(rect, tex, ScaleMode.StretchToFill, false);
+        }
+
+        /// <summary>
+        /// 绘制 UGUI 预览
+        /// 使用独立的 Camera + Canvas + RenderTexture 实现真正的 UI 渲染
+        /// </summary>
+        private void DrawUguiPreview(Rect rect)
+        {
+            if (_uiPreviewCamera == null || _uiCanvasRoot == null || _uiRenderTexture == null)
+            {
+                DrawInfoMessage(rect, ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                return;
+            }
+
+            // 强制更新 Canvas
+            Canvas.ForceUpdateCanvases();
+
+            // 渲染
+            _uiPreviewCamera.Render();
+
+            // 计算绘制区域（保持 16:9 比例）
+            var sourceAspect = 1920f / 1080f;
+            var rectAspect = rect.width / rect.height;
+
+            Rect drawRect;
+            if (rectAspect > sourceAspect)
+            {
+                // 预览区域更宽，左右留空
+                var width = rect.height * sourceAspect;
+                drawRect = new Rect(rect.x + (rect.width - width) * 0.5f, rect.y, width, rect.height);
+            }
+            else
+            {
+                // 预览区域更高，上下留空
+                var height = rect.width / sourceAspect;
+                drawRect = new Rect(rect.x, rect.y + (rect.height - height) * 0.5f, rect.width, height);
+            }
+
+            // 绘制到预览区域
+            GUI.DrawTexture(drawRect, _uiRenderTexture, ScaleMode.StretchToFill, false);
         }
 
         private void DrawTexturePreview(Rect rect)
