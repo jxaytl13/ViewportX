@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -536,6 +537,7 @@ namespace PrefabPreviewer
         private Camera _uiPreviewCamera;
         private RenderTexture _uiRenderTexture;
         private GameObject _uiPreviewRoot;
+        private Scene _uiPreviewScene;
         private Vector2 _uiCanvasSize = new(1920f, 1080f);
         private float _uiZoom = 1f;
         private Vector2 _uiPanOffset = Vector2.zero;
@@ -1348,16 +1350,17 @@ namespace PrefabPreviewer
             _uiRenderTexture.antiAliasing = 4;
             _uiRenderTexture.Create();
 
+            // 创建独立的预览场景，避免在主场景 Scene 窗口中显示
+            _uiPreviewScene = EditorSceneManager.NewPreviewScene();
+
             // 创建预览根对象
-            _uiPreviewRoot = EditorUtility.CreateGameObjectWithHideFlags(
-                "_UIPreviewRoot",
-                HideFlags.HideAndDontSave);
+            _uiPreviewRoot = new GameObject("_UIPreviewRoot");
+            _uiPreviewRoot.hideFlags = HideFlags.HideAndDontSave;
+            SceneManager.MoveGameObjectToScene(_uiPreviewRoot, _uiPreviewScene);
 
             // 创建预览相机
-            var cameraGo = EditorUtility.CreateGameObjectWithHideFlags(
-                "_UIPreviewCamera",
-                HideFlags.HideAndDontSave,
-                typeof(Camera));
+            var cameraGo = new GameObject("_UIPreviewCamera", typeof(Camera));
+            cameraGo.hideFlags = HideFlags.HideAndDontSave;
             cameraGo.transform.SetParent(_uiPreviewRoot.transform, false);
 
             _uiPreviewCamera = cameraGo.GetComponent<Camera>();
@@ -1371,6 +1374,7 @@ namespace PrefabPreviewer
             _uiPreviewCamera.enabled = false; // 手动渲染
             _uiPreviewCamera.targetTexture = _uiRenderTexture;
             _uiPreviewCamera.cullingMask = 1 << 5; // UI layer
+            _uiPreviewCamera.scene = _uiPreviewScene;
 
             // 创建 Canvas
             var components = new List<Type> { typeof(RectTransform), typeof(Canvas) };
@@ -1473,6 +1477,13 @@ namespace PrefabPreviewer
             {
                 DestroyImmediate(_uiPreviewRoot);
                 _uiPreviewRoot = null;
+            }
+
+            // 关闭预览场景
+            if (_uiPreviewScene.IsValid())
+            {
+                EditorSceneManager.ClosePreviewScene(_uiPreviewScene);
+                _uiPreviewScene = default;
             }
 
             _uiPreviewCamera = null;
@@ -1720,7 +1731,7 @@ namespace PrefabPreviewer
 
             if (_contentType == PreviewContentType.UGUI)
             {
-                // UGUI 通过调整 Canvas 的 scaleFactor 实现缩放
+                // UGUI 通过调整预制体实例的 localScale 实现缩放
                 var factor = 1f - delta;
                 _uiZoom *= factor;
                 _uiZoom = Mathf.Clamp(_uiZoom, 0.1f, 5f);
@@ -1745,17 +1756,13 @@ namespace PrefabPreviewer
         }
 
         /// <summary>
-        /// 应用 UI 缩放到 Canvas
+        /// 应用 UI 缩放到预制体实例
         /// </summary>
         private void ApplyUiZoom()
         {
-            if (_uiCanvasRoot == null) return;
+            if (_previewInstance == null) return;
 
-            var canvas = _uiCanvasRoot.GetComponent<Canvas>();
-            if (canvas != null)
-            {
-                canvas.scaleFactor = _uiZoom;
-            }
+            _previewInstance.transform.localScale = Vector3.one * _uiZoom;
         }
 
         private void CacheParticleSystems()
@@ -1934,10 +1941,39 @@ namespace PrefabPreviewer
 
             if (_contentType == PreviewContentType.UGUI)
             {
-                // UGUI 使用独立的平移系统
-                // 将屏幕像素转换为 Canvas 坐标
-                var pixelsPerUnit = _previewSize.y / (_uiCanvasSize.y / _uiZoom);
-                _uiPanOffset += new Vector2(screenDelta.x / pixelsPerUnit, -screenDelta.y / pixelsPerUnit);
+                // UGUI 通过移动预制体实例的 anchoredPosition 实现平移
+                if (_previewInstance == null) return;
+
+                var instanceRect = _previewInstance.GetComponent<RectTransform>();
+                if (instanceRect != null)
+                {
+                    // 计算预览区域与 Canvas 的比例
+                    // 预览区域保持 16:9 比例
+                    var sourceAspect = 1920f / 1080f;
+                    var rectAspect = _previewSize.x / _previewSize.y;
+
+                    float drawWidth, drawHeight;
+                    if (rectAspect > sourceAspect)
+                    {
+                        drawHeight = _previewSize.y;
+                        drawWidth = drawHeight * sourceAspect;
+                    }
+                    else
+                    {
+                        drawWidth = _previewSize.x;
+                        drawHeight = drawWidth / sourceAspect;
+                    }
+
+                    // 屏幕像素到 Canvas 坐标的转换
+                    var scaleX = _uiCanvasSize.x / drawWidth;
+                    var scaleY = _uiCanvasSize.y / drawHeight;
+
+                    // 应用平移（localScale 不影响 anchoredPosition 的效果）
+                    var deltaX = screenDelta.x * scaleX;
+                    var deltaY = -screenDelta.y * scaleY;
+
+                    instanceRect.anchoredPosition += new Vector2(deltaX, deltaY);
+                }
                 _previewSurface?.MarkDirtyRepaint();
                 return;
             }
