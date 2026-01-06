@@ -367,7 +367,8 @@ namespace PrefabPreviewer
             None,
             PrefabScene,
             Texture,
-            AssetPreview
+            AssetPreview,
+            MaterialPreview
         }
 
         private enum ViewAxis
@@ -380,6 +381,9 @@ namespace PrefabPreviewer
 
         private VisualElement _previewHost;
         private PreviewSurfaceElement _previewSurface;
+        private IMGUIContainer _materialPreviewContainer;
+        private Material _materialPreviewTarget;
+        private Editor _materialPreviewEditor;
         private Label _selectionLabel;
         private Label _statusLabel;
         private Button _autoRotateButton;
@@ -528,6 +532,7 @@ namespace PrefabPreviewer
         private GameObject _previewInstance;
         private GameObject _uiCanvasRoot;
         private readonly List<ParticleSystem> _particleSystems = new();
+        private readonly List<ParticleSystem> _particleRootSystems = new();
         private PreviewContentType _contentType = PreviewContentType.None;
         private UnityEngine.Object _currentAsset;
         private Bounds _contentBounds;
@@ -776,6 +781,16 @@ namespace PrefabPreviewer
                 _previewHost.pickingMode = PickingMode.Position;
                 _previewHost.Add(_previewSurface);
             }
+
+            _materialPreviewContainer = new IMGUIContainer(DrawMaterialPreviewGui);
+            _materialPreviewContainer.pickingMode = PickingMode.Position;
+            _materialPreviewContainer.style.position = Position.Absolute;
+            _materialPreviewContainer.style.left = 0;
+            _materialPreviewContainer.style.right = 0;
+            _materialPreviewContainer.style.top = 0;
+            _materialPreviewContainer.style.bottom = 0;
+            _materialPreviewContainer.style.display = DisplayStyle.None;
+            _previewHost?.Add(_materialPreviewContainer);
 
             _previewMessageLabel = new Label();
             _previewMessageLabel.AddToClassList("preview-message");
@@ -1081,13 +1096,14 @@ namespace PrefabPreviewer
         private void UpdateToolbarIcons()
         {
             var sceneControls = _displayMode == PreviewDisplayMode.PrefabScene && _contentType != PreviewContentType.UGUI;
+            var particleControls = _displayMode == PreviewDisplayMode.PrefabScene && _particleSystems.Count > 0;
 
             SetToolbarButtonIcon(_gridButton, sceneControls && _gridVisible ? _iconGridS : _iconGridN);
             SetToolbarButtonIcon(_lightingButton, sceneControls && _lightingEnabled ? _iconLightS : _iconLightN);
             SetToolbarButtonIcon(_autoRotateButton, sceneControls && _autoRotate ? _iconAutoRotateS : _iconAutoRotateN);
             SetToolbarButtonIcon(_projectionButton, sceneControls && _usePerspectiveProjection ? _iconPerspectiveS : _iconPerspectiveN);
 
-            var particlePlaying = _contentType == PreviewContentType.Particle && _particlePlaying;
+            var particlePlaying = particleControls && _particlePlaying;
             if (_playButton != null)
             {
                 if (particlePlaying)
@@ -1369,7 +1385,7 @@ namespace PrefabPreviewer
                     SetupTexturePreview(texture, ViewportXLocalization.Key.AssetTypeTexture);
                     break;
                 case Material material:
-                    SetupAssetPreview(material, ViewportXLocalization.Key.AssetTypeMaterial);
+                    SetupMaterialPreview(material, ViewportXLocalization.Key.AssetTypeMaterial);
                     break;
                 case Mesh mesh:
                     SetupAssetPreview(mesh, ViewportXLocalization.Key.AssetTypeMesh);
@@ -1471,7 +1487,7 @@ namespace PrefabPreviewer
             _uiPreviewCamera.depth = -100;
             _uiPreviewCamera.enabled = false; // 手动渲染
             _uiPreviewCamera.targetTexture = _uiRenderTexture;
-            _uiPreviewCamera.cullingMask = 1 << 5; // UI layer
+            _uiPreviewCamera.cullingMask = (1 << 5) | GetLayerMaskForHierarchy(_previewInstance); // UI layer + prefab layers
             _uiPreviewCamera.scene = _uiPreviewScene;
 
             // 创建 Canvas
@@ -1526,33 +1542,26 @@ namespace PrefabPreviewer
             if (_previewInstance != null)
             {
                 // 设置所有子对象的 layer 为 UI
-                SetLayerRecursively(_previewInstance, 5);
                 _previewInstance.transform.SetParent(canvas.transform, false);
 
                 // 重置位置到中心，避免预制体原始坐标导致的偏移
-                var instanceRect = _previewInstance.GetComponent<RectTransform>();
-                if (instanceRect != null)
-                {
-                    instanceRect.anchoredPosition = Vector2.zero;
-                    instanceRect.localPosition = Vector3.zero;
-                }
+                // Keep prefab RectTransform values (no zeroing).
             }
 
             // 缓存粒子系统（UGUI 内可能包含粒子特效）
             CacheParticleSystems();
 
-            // 启动粒子播放
+            // 初始化粒子（保持暂停，由窗口手动 Simulate 推进，避免 Unity 编辑器自动模拟导致变速/叠加）
             if (_particleSystems.Count > 0)
             {
-                foreach (var ps in _particleSystems)
+                foreach (var ps in _particleRootSystems)
                 {
                     if (ps != null)
                     {
-                        ps.Simulate(0f, true, true, true);
-                        ps.Play(true);
+                        ps.Simulate(0f, true, true, false);
+                        ps.Pause(true);
                     }
                 }
-                _particlePlaying = true;
             }
 
             // 保存原始缩放，重置缩放系数和平移
@@ -1567,14 +1576,31 @@ namespace PrefabPreviewer
         /// <summary>
         /// 递归设置 GameObject 及其所有子对象的 layer
         /// </summary>
-        private void SetLayerRecursively(GameObject go, int layer)
+        /// <remarks>Get layer mask for hierarchy.</remarks>
+        private static int GetLayerMaskForHierarchy(GameObject root)
         {
-            if (go == null) return;
-            go.layer = layer;
-            foreach (Transform child in go.transform)
+            if (root == null)
             {
-                SetLayerRecursively(child.gameObject, layer);
+                return 0;
             }
+
+            var mask = 0;
+            var transforms = root.GetComponentsInChildren<Transform>(true);
+            foreach (var t in transforms)
+            {
+                if (t == null)
+                {
+                    continue;
+                }
+
+                var layer = t.gameObject.layer;
+                if (layer >= 0 && layer < 32)
+                {
+                    mask |= 1 << layer;
+                }
+            }
+
+            return mask;
         }
 
         /// <summary>
@@ -1616,7 +1642,9 @@ namespace PrefabPreviewer
             DestroyPreviewObject(ref _previewInstance);
             CleanupUiRoot();
             ReleasePrefabRenderTexture();
+            CleanupMaterialPreview();
             _particleSystems.Clear();
+            _particleRootSystems.Clear();
             _contentType = PreviewContentType.None;
             _displayMode = PreviewDisplayMode.None;
             _particlePlaying = true;
@@ -1633,6 +1661,10 @@ namespace PrefabPreviewer
             }
 
             var interval = GetPreviewIntervalSeconds(now);
+            if (_displayMode == PreviewDisplayMode.PrefabScene && _particleSystems.Count > 0 && _particlePlaying)
+            {
+                interval = 0;
+            }
             var tickDue = (now - _lastUpdateTime) >= interval;
             var delta = tickDue ? (float)(now - _lastUpdateTime) : 0f;
             if (tickDue)
@@ -1648,13 +1680,7 @@ namespace PrefabPreviewer
                         // UGUI 预览：检查是否有粒子系统需要更新
                         if (_particleSystems.Count > 0 && _particlePlaying)
                         {
-                            foreach (var ps in _particleSystems)
-                            {
-                                if (ps != null)
-                                {
-                                    ps.Simulate(delta, true, false, true);
-                                }
-                            }
+                            AdvanceParticleSimulation(delta);
 
                             _previewRepaintRequested = true;
                         }
@@ -1670,10 +1696,7 @@ namespace PrefabPreviewer
 
                         if (_contentType == PreviewContentType.Particle && _particlePlaying)
                         {
-                            foreach (var ps in _particleSystems)
-                            {
-                                ps.Simulate(delta, true, false, true);
-                            }
+                            AdvanceParticleSimulation(delta);
 
                             needsRepaint = true;
                         }
@@ -1689,15 +1712,27 @@ namespace PrefabPreviewer
                             _previewRepaintRequested = true;
                         }
                         break;
+                    case PreviewDisplayMode.MaterialPreview:
+                        if (_materialPreviewTarget != null && _materialPreviewEditor != null)
+                        {
+                            _previewRepaintRequested = true;
+                        }
+                        break;
                 }
             }
 
-            if (_previewRepaintRequested && _previewSurface != null && (now - _lastPreviewRepaintTime) >= interval)
+            var frameElement = _previewSurface;
+            if (_previewRepaintRequested && frameElement != null && (now - _lastPreviewRepaintTime) >= interval)
             {
                 _previewRepaintRequested = false;
                 _lastPreviewRepaintTime = now;
-                UpdatePreviewFrame(_previewSurface.contentRect);
-                _previewSurface.MarkDirtyRepaint();
+                UpdatePreviewFrame(frameElement.contentRect);
+                frameElement.MarkDirtyRepaint();
+
+                if (_displayMode == PreviewDisplayMode.MaterialPreview)
+                {
+                    _materialPreviewContainer?.MarkDirtyRepaint();
+                }
             }
         }
 
@@ -1713,19 +1748,47 @@ namespace PrefabPreviewer
             switch (_displayMode)
             {
                 case PreviewDisplayMode.PrefabScene:
+                    HideMaterialPreview();
                     UpdatePrefabFrame(rect);
                     break;
                 case PreviewDisplayMode.Texture:
+                    HideMaterialPreview();
                     UpdateTextureFrame();
                     break;
                 case PreviewDisplayMode.AssetPreview:
+                    HideMaterialPreview();
                     UpdateAssetPreviewFrame();
                     break;
+                case PreviewDisplayMode.MaterialPreview:
+                    UpdateMaterialPreviewFrame(rect);
+                    break;
                 default:
+                    HideMaterialPreview();
                     _previewSurface?.ClearFrame();
                     SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPreviewableAsset, _uiLanguage == UiLanguage.Chinese));
                     break;
             }
+        }
+
+        private void UpdateMaterialPreviewFrame(Rect rect)
+        {
+            _previewSurface?.ClearFrame();
+
+            if (_materialPreviewContainer == null)
+            {
+                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                return;
+            }
+
+            if (_materialPreviewTarget == null || _materialPreviewEditor == null || rect.width <= 0f || rect.height <= 0f)
+            {
+                _materialPreviewContainer.style.display = DisplayStyle.None;
+                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
+                return;
+            }
+
+            _materialPreviewContainer.style.display = DisplayStyle.Flex;
+            SetPreviewMessage(null);
         }
 
         private void UpdatePrefabFrame(Rect rect)
@@ -2009,29 +2072,85 @@ namespace PrefabPreviewer
         private void CacheParticleSystems()
         {
             _particleSystems.Clear();
+            _particleRootSystems.Clear();
             if (_previewInstance == null)
             {
                 return;
             }
 
             _previewInstance.GetComponentsInChildren(_particleSystems);
+
+            foreach (var ps in _particleSystems)
+            {
+                if (ps == null)
+                {
+                    continue;
+                }
+
+                var root = GetParticleSystemRoot(ps);
+                if (root != null && !_particleRootSystems.Contains(root))
+                {
+                    _particleRootSystems.Add(root);
+                }
+            }
         }
 
-        private void RestartParticles()
+        private static ParticleSystem GetParticleSystemRoot(ParticleSystem ps)
         {
-            if (_contentType != PreviewContentType.Particle)
+            if (ps == null)
+            {
+                return null;
+            }
+
+            var current = ps.transform;
+            while (current.parent && current.parent.gameObject.GetComponent<ParticleSystem>() != null)
+            {
+                current = current.parent;
+            }
+
+            return current.gameObject.GetComponent<ParticleSystem>();
+        }
+
+        private void AdvanceParticleSimulation(float delta)
+        {
+            if (_particleRootSystems.Count == 0 || delta <= 0f)
             {
                 return;
             }
 
-            foreach (var ps in _particleSystems)
+            foreach (var ps in _particleRootSystems)
             {
-                ps.Simulate(0f, true, true, true);
-                ps.Play(true);
+                if (ps == null)
+                {
+                    continue;
+                }
+
+                ps.Simulate(delta, true, false, false);
+            }
+        }
+
+        private void RestartParticles()
+        {
+            if (_displayMode != PreviewDisplayMode.PrefabScene || _particleSystems.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var ps in _particleRootSystems)
+            {
+                if (ps == null)
+                {
+                    continue;
+                }
+
+                ps.Simulate(0f, true, true, false);
+                ps.Pause(true);
             }
 
             _particlePlaying = true;
+            _lastUpdateTime = EditorApplication.timeSinceStartup;
             UpdatePlayButtonLabel();
+            RequestPreviewRepaint();
         }
 
         private void WarmUpParticlesForBounds(float totalTime = 0.8f, int steps = 6)
@@ -2041,10 +2160,15 @@ namespace PrefabPreviewer
                 return;
             }
 
-            foreach (var ps in _particleSystems)
+            foreach (var ps in _particleRootSystems)
             {
-                ps.Simulate(0f, true, true, true);
-                ps.Play(true);
+                if (ps == null)
+                {
+                    continue;
+                }
+
+                ps.Simulate(0f, true, true, false);
+                ps.Pause(true);
             }
 
             var step = steps > 0 ? Mathf.Max(totalTime / steps, 0.01f) : totalTime;
@@ -2055,42 +2179,49 @@ namespace PrefabPreviewer
 
             for (var i = 0; i < steps; i++)
             {
-                foreach (var ps in _particleSystems)
+                foreach (var ps in _particleRootSystems)
                 {
-                    ps.Simulate(step, true, false, true);
+                    if (ps == null)
+                    {
+                        continue;
+                    }
+
+                    ps.Simulate(step, true, false, false);
                 }
             }
 
-            foreach (var ps in _particleSystems)
+            foreach (var ps in _particleRootSystems)
             {
-                ps.Pause(true);
+                if (ps != null)
+                {
+                    ps.Pause(true);
+                }
             }
         }
 
         private void ToggleParticlePlay()
         {
-            if (_contentType != PreviewContentType.Particle)
+            if (_displayMode != PreviewDisplayMode.PrefabScene || _particleSystems.Count == 0)
             {
                 return;
             }
 
             _particlePlaying = !_particlePlaying;
-            if (!_particlePlaying)
+            if (_particlePlaying)
             {
-                foreach (var ps in _particleSystems)
+                _lastUpdateTime = EditorApplication.timeSinceStartup;
+            }
+
+            foreach (var ps in _particleRootSystems)
+            {
+                if (ps != null)
                 {
                     ps.Pause(true);
                 }
             }
-            else
-            {
-                foreach (var ps in _particleSystems)
-                {
-                    ps.Play(true);
-                }
-            }
 
             UpdatePlayButtonLabel();
+            RequestPreviewRepaint();
         }
 
         private void UpdatePlayButtonLabel()
@@ -2272,6 +2403,7 @@ namespace PrefabPreviewer
 
         private void SetupTexturePreview(Texture texture, ViewportXLocalization.Key typeKey)
         {
+            HideMaterialPreview();
             _displayMode = PreviewDisplayMode.Texture;
             _texturePreview = texture;
             _textureHasCustomUv = false;
@@ -2287,6 +2419,7 @@ namespace PrefabPreviewer
 
         private void SetupTexturePreview(Texture texture, string typeName)
         {
+            HideMaterialPreview();
             _displayMode = PreviewDisplayMode.Texture;
             _texturePreview = texture;
             _textureHasCustomUv = false;
@@ -2302,6 +2435,7 @@ namespace PrefabPreviewer
 
         private void SetupAssetPreview(UnityEngine.Object target, ViewportXLocalization.Key labelKey)
         {
+            HideMaterialPreview();
             _displayMode = PreviewDisplayMode.AssetPreview;
             _assetPreviewSource = target;
             _assetPreviewTexture = AssetPreview.GetAssetPreview(target) ?? AssetPreview.GetMiniThumbnail(target);
@@ -2316,6 +2450,7 @@ namespace PrefabPreviewer
 
         private void SetupAssetPreview(UnityEngine.Object target, string label)
         {
+            HideMaterialPreview();
             _displayMode = PreviewDisplayMode.AssetPreview;
             _assetPreviewSource = target;
             _assetPreviewTexture = AssetPreview.GetAssetPreview(target) ?? AssetPreview.GetMiniThumbnail(target);
@@ -2337,6 +2472,71 @@ namespace PrefabPreviewer
             _assetPreviewSource = null;
             _assetPreviewSourceInstanceId = 0;
             _assetPreviewNextPollTime = 0;
+        }
+
+        private void SetupMaterialPreview(Material material, ViewportXLocalization.Key labelKey)
+        {
+            CleanupMaterialPreview();
+
+            _displayMode = PreviewDisplayMode.MaterialPreview;
+            _materialPreviewTarget = material;
+
+            if (material != null)
+            {
+                Editor.CreateCachedEditor(material, typeof(MaterialEditor), ref _materialPreviewEditor);
+            }
+
+            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusArgKey = labelKey;
+            _statusArgLiteral = null;
+            ApplyStatusFromState();
+        }
+
+        private void CleanupMaterialPreview()
+        {
+            _materialPreviewTarget = null;
+            if (_materialPreviewEditor != null)
+            {
+                DestroyImmediate(_materialPreviewEditor);
+                _materialPreviewEditor = null;
+            }
+
+            HideMaterialPreview();
+        }
+
+        private void HideMaterialPreview()
+        {
+            if (_materialPreviewContainer != null)
+            {
+                _materialPreviewContainer.style.display = DisplayStyle.None;
+            }
+        }
+
+        private void DrawMaterialPreviewGui()
+        {
+            if (_displayMode != PreviewDisplayMode.MaterialPreview)
+            {
+                return;
+            }
+
+            if (_materialPreviewContainer == null || _materialPreviewTarget == null || _materialPreviewEditor == null)
+            {
+                return;
+            }
+
+            var rect = _materialPreviewContainer.contentRect;
+            rect.position = Vector2.zero;
+            if (rect.width <= 0f || rect.height <= 0f)
+            {
+                return;
+            }
+
+            _materialPreviewEditor.OnInteractivePreviewGUI(rect, GUIStyle.none);
+
+            if (_materialPreviewEditor.RequiresConstantRepaint())
+            {
+                RequestPreviewRepaint();
+            }
         }
 
         private void SetStatusText(string text)
@@ -2406,7 +2606,7 @@ namespace PrefabPreviewer
             _viewXButton?.SetEnabled(sceneControls);
             _viewYButton?.SetEnabled(sceneControls);
             _viewZButton?.SetEnabled(sceneControls);
-            var particleControls = prefabMode && _contentType == PreviewContentType.Particle;
+            var particleControls = prefabMode && _particleSystems.Count > 0;
             _restartButton?.SetEnabled(particleControls);
             _playButton?.SetEnabled(particleControls);
 
@@ -2420,7 +2620,7 @@ namespace PrefabPreviewer
 
         private void ToggleParticleControlsVisibility(bool forceDisable)
         {
-            var show = !forceDisable && _displayMode == PreviewDisplayMode.PrefabScene && _contentType == PreviewContentType.Particle;
+            var show = !forceDisable && _displayMode == PreviewDisplayMode.PrefabScene && _particleSystems.Count > 0;
             _playButton?.SetEnabled(show);
             _restartButton?.SetEnabled(show);
         }
