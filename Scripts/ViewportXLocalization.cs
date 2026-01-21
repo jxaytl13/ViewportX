@@ -3,7 +3,7 @@ using System;
 
 namespace PrefabPreviewer
 {
-    internal static class ViewportXLocalization
+    internal static class ViewPortXLocalization
     {
         internal enum Key
         {
@@ -144,7 +144,7 @@ namespace PrefabPreviewer
                 Key.SettingsStoragePath => "存储路径: {0}",
                 Key.SettingsTools => "工具说明",
                 Key.SettingsAbout => "关于",
-                Key.SettingsToolIntroduction => "ViewportX：用于在编辑器中预览 Prefab/模型/粒子/UGUI。支持旋转、缩放、平移、视图切换、网格与灯光等。",
+                Key.SettingsToolIntroduction => "ViewPortX：用于在编辑器中预览 Prefab/模型/粒子/UGUI。支持旋转、缩放、平移、视图切换、网格与灯光等。",
 
                 Key.LanguageOptionEnglish => "English",
                 Key.LanguageOptionChinese => "中文",
@@ -211,7 +211,7 @@ namespace PrefabPreviewer
                 Key.SettingsStoragePath => "Storage: {0}",
                 Key.SettingsTools => "About",
                 Key.SettingsAbout => "About",
-                Key.SettingsToolIntroduction => "ViewportX is a prefab preview tool for viewing Prefabs/models/particles/UGUI in the Editor. Supports orbit, zoom, pan, view axes, grid and lighting.",
+                Key.SettingsToolIntroduction => "ViewPortX is a prefab preview tool for viewing Prefabs/models/particles/UGUI in the Editor. Supports orbit, zoom, pan, view axes, grid and lighting.",
 
                 Key.LanguageOptionEnglish => "English",
                 Key.LanguageOptionChinese => "Chinese",

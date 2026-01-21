@@ -1,4 +1,4 @@
-# ViewportX (Unity Editor Tool) – Offline Documentation
+# ViewPortX (Unity Editor Tool) – Offline Documentation
 
 ## 1. Table of Contents
 
@@ -14,7 +14,7 @@
 
 ## 2. Overview
 
-ViewportX is a Unity Editor window for quickly previewing selected assets in a dedicated viewport (models, prefabs, and particles), with common navigation controls such as orbit, pan, zoom, framing, grid, lighting, and projection toggle.
+ViewPortX is a Unity Editor window for quickly previewing selected assets in a dedicated viewport (models, prefabs, and particles), with common navigation controls such as orbit, pan, zoom, framing, grid, lighting, and projection toggle.
 
 No runtime components are required. This tool is intended for the Unity Editor only.
 
@@ -28,11 +28,11 @@ No runtime components are required. This tool is intended for the Unity Editor o
 1. Import the package into your Unity project.
 2. Ensure the folder structure is preserved (see “File Layout” below).
 3. Open the window via the menu:
-   - `Window/T·L Nexus/ViewportX`
+   - `Window/T·L Nexus/ViewPortX`
 
 ## 5. Quick Start
 
-1. Open `ViewportX` from the menu.
+1. Open `ViewPortX` from the menu.
 2. Select a prefab/model/particle asset in the Project window.
 3. The window updates the preview automatically (you can also use the refresh button if available).
 4. Use the toolbar buttons to toggle grid, lighting, projection, auto-rotate, and to frame/reset the view.
@@ -58,21 +58,21 @@ The exact controls can vary slightly by Unity version and platform, but the wind
 
 ## 7. Settings & Data Storage
 
-ViewportX stores user preferences under the project `Library` folder (per-project):
+ViewPortX stores user preferences under the project `Library` folder (per-project):
 
-- Folder: `Library/ViewportX`
-- File: `ViewportXConfig.json`
+- Folder: `Library/ViewPortX`
+- File: `ViewPortXConfig.json`
 
 Deleting the file resets settings to defaults.
 
 ## 8. File Layout (UXML/USS & Icons)
 
-ViewportX uses UI Toolkit assets (UXML/USS) and toolbar icon textures.
+ViewPortX uses UI Toolkit assets (UXML/USS) and toolbar icon textures.
 
 To avoid missing UI at runtime, keep these files (and their `.meta` files) together as shipped:
 
-- `UI/ViewportXWindow.uxml`
-- `UI/ViewportXWindow.uss`
+- `UI/ViewPortXWindow.uxml`
+- `UI/ViewPortXWindow.uss`
 - Icon textures referenced by the window (located next to the UXML/USS in the UI directory)
 
 If you move or rename UI files, Unity GUIDs will change and the window may show “Missing UXML/USS”.
@@ -81,7 +81,7 @@ If you move or rename UI files, Unity GUIDs will change and the window may show 
 
 1. The window opens but is blank  
    - Check the Console for errors.
-   - Ensure `UI/ViewportXWindow.uxml` and `UI/ViewportXWindow.uss` exist and their `.meta` files were not regenerated.
+   - Ensure `UI/ViewPortXWindow.uxml` and `UI/ViewPortXWindow.uss` exist and their `.meta` files were not regenerated.
    - If you are using an obfuscated DLL, make sure the UI build is not dependent on a renamed `CreateGUI()` method (this package avoids relying on `CreateGUI()` as the only entry point).
 
 2. “Missing UXML/USS” message inside the window  
@@ -97,5 +97,5 @@ If you need help, include the following in your report:
 1. Unity version (e.g. 2021.3.x)
 2. OS (Windows/macOS)
 3. Console error stack trace (if any)
-4. A screenshot of the ViewportX window
+4. A screenshot of the ViewPortX window
 

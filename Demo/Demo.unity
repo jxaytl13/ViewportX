@@ -345,11 +345,11 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: "# ViewportX (Unity Editor Tool) \u2013 Offline Documentation\r\n\r\n##
+  m_Text: "# ViewPortX (Unity Editor Tool) \u2013 Offline Documentation\r\n\r\n##
     1. Table of Contents\r\n\r\n1. Overview  \r\n2. Requirements  \r\n3. Installation 
     \r\n4. Quick Start  \r\n5. Controls & UI Reference  \r\n6. Settings & Data Storage 
     \r\n7. File Layout (UXML/USS & Icons)  \r\n8. Troubleshooting  \r\n9. Contact
-    / Support  \r\n\r\n## 2. Overview\r\n\r\nViewportX is a Unity Editor window for
+    / Support  \r\n\r\n## 2. Overview\r\n\r\nViewPortX is a Unity Editor window for
     quickly previewing selected assets in a dedicated viewport (models, prefabs,
     and particles), with common navigation controls such as orbit, pan, zoom, framing,
     grid, lighting, and projection toggle.\r\n\r\nNo runtime components are required.
@@ -358,7 +358,7 @@ MonoBehaviour:
     player integration is required.\r\n\r\n## 4. Installation\r\n\r\n1. Import the
     package into your Unity project.\r\n2. Ensure the folder structure is preserved
     (see \u201CFile Layout\u201D below).\r\n3. Open the window via the menu:\r\n  
-    - `Window/T\xB7L Nexus/ViewportX`\r\n\r\n## 5. Quick Start\r\n\r\n1. Open `ViewportX`
+    - `Window/T\xB7L Nexus/ViewPortX`\r\n\r\n## 5. Quick Start\r\n\r\n1. Open `ViewPortX`
     from the menu.\r\n2. Select a prefab/model/particle asset in the Project window.\r\n3.
     The window updates the preview automatically (you can also use the refresh button
     if available).\r\n4. Use the toolbar buttons to toggle grid, lighting, projection,
@@ -369,18 +369,18 @@ MonoBehaviour:
     - Play/Pause particles\r\n   - Restart particles\r\n   - Grid visibility\r\n  
     - Auto rotate\r\n   - Lighting on/off\r\n   - Perspective/Orthographic toggle\r\n  
     - Refresh selection\r\n   - Reset view\r\n   - View axis shortcuts (X/Y/Z)\r\n  
-    - Frame view / focus\r\n   - Settings\r\n\r\n## 7. Settings & Data Storage\r\n\r\nViewportX
+    - Frame view / focus\r\n   - Settings\r\n\r\n## 7. Settings & Data Storage\r\n\r\nViewPortX
     stores user preferences under the project `Library` folder (per-project):\r\n\r\n-
-    Folder: `Library/ViewportX`\r\n- File: `ViewportXConfig.json`\r\n\r\nDeleting
-    the file resets settings to defaults.\r\n\r\n## 8. File Layout (UXML/USS & Icons)\r\n\r\nViewportX
+    Folder: `Library/ViewPortX`\r\n- File: `ViewPortXConfig.json`\r\n\r\nDeleting
+    the file resets settings to defaults.\r\n\r\n## 8. File Layout (UXML/USS & Icons)\r\n\r\nViewPortX
     uses UI Toolkit assets (UXML/USS) and toolbar icon textures.\r\n\r\nTo avoid
     missing UI at runtime, keep these files (and their `.meta` files) together as
-    shipped:\r\n\r\n- `UI/ViewportXWindow.uxml`\r\n- `UI/ViewportXWindow.uss`\r\n-
+    shipped:\r\n\r\n- `UI/ViewPortXWindow.uxml`\r\n- `UI/ViewPortXWindow.uss`\r\n-
     Icon textures referenced by the window (located next to the UXML/USS in the UI
     directory)\r\n\r\nIf you move or rename UI files, Unity GUIDs will change and
     the window may show \u201CMissing UXML/USS\u201D.\r\n\r\n## 9. Troubleshooting\r\n\r\n1.
     The window opens but is blank  \r\n   - Check the Console for errors.\r\n   -
-    Ensure `UI/ViewportXWindow.uxml` and `UI/ViewportXWindow.uss` exist and their
+    Ensure `UI/ViewPortXWindow.uxml` and `UI/ViewPortXWindow.uss` exist and their
     `.meta` files were not regenerated.\r\n   - If you are using an obfuscated DLL,
     make sure the UI build is not dependent on a renamed `CreateGUI()` method (this
     package avoids relying on `CreateGUI()` as the only entry point).\r\n\r\n2. \u201CMissing
@@ -390,7 +390,7 @@ MonoBehaviour:
     in the same directory as the UXML file.\r\n\r\n## 10. Contact / Support\r\n\r\nIf
     you need help, include the following in your report:\r\n\r\n1. Unity version
     (e.g. 2021.3.x)\r\n2. OS (Windows/macOS)\r\n3. Console error stack trace (if
-    any)\r\n4. A screenshot of the ViewportX window\r\n\r\n"
+    any)\r\n4. A screenshot of the ViewPortX window\r\n\r\n"
 --- !u!222 &1298470625
 CanvasRenderer:
   m_ObjectHideFlags: 0

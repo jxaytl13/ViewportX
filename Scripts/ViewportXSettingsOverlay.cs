@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace PrefabPreviewer
 {
     /// <summary>
-    /// ViewportX 设置弹窗（Overlay）
+    /// ViewPortX 设置弹窗（Overlay）
     /// 
     /// 设计目标：
     /// 1) 不依赖 UXML / USS，全部用 C# 硬编码创建 UI 和样式；
@@ -14,11 +14,11 @@ namespace PrefabPreviewer
     /// 3) 文案支持中英文切换（由外部决定当前语言并负责持久化）。
     /// 
     /// 用法（在任意 EditorWindow 的 CreateGUI 中）：
-    /// var overlay = new ViewportXSettingsOverlay(...);
+    /// var overlay = new ViewPortXSettingsOverlay(...);
     /// rootVisualElement.Add(overlay.Root);
     /// overlay.Show(); / overlay.Hide();
     /// </summary>
-    public sealed class ViewportXSettingsOverlay
+    public sealed class ViewPortXSettingsOverlay
     {
         // Overlay 根节点：铺满窗口，半透明背景，点击空白区域关闭。
         private readonly VisualElement _overlayRoot;
@@ -77,7 +77,7 @@ namespace PrefabPreviewer
         /// </summary>
         public VisualElement Root => _overlayRoot;
 
-        public ViewportXSettingsOverlay(
+        public ViewPortXSettingsOverlay(
             string aboutVersion,
             string aboutAuthor,
             string toolIntroductionZh,

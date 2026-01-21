@@ -14,9 +14,9 @@ using Button = UnityEngine.UIElements.Button;
 
 namespace PrefabPreviewer
 {
-    public class ViewportXWindow : EditorWindow
+    public class ViewPortXWindow : EditorWindow
     {
-        private const string MenuPath = "Window/T·L NEXUS/ViewportX";
+        private const string MenuPath = "Window/T·L NEXUS/ViewPortX";
         private const string UxmlGuid = "da9ded1f94a3b464abaefea0b9f7c365";
         private const string UssGuid = "784c8e8d65cde5540a8e61ae40dfa81a";
         private const float PerspectiveFieldOfView = 60f;
@@ -399,9 +399,9 @@ namespace PrefabPreviewer
         private Button _viewXButton;
         private Button _viewYButton;
         private Button _viewZButton;
-        private ViewportXSettingsOverlay _settingsOverlay;
-        private ViewportXLocalization.Key _statusKey = ViewportXLocalization.Key.StatusNoAsset;
-        private ViewportXLocalization.Key? _statusArgKey;
+        private ViewPortXSettingsOverlay _settingsOverlay;
+        private ViewPortXLocalization.Key _statusKey = ViewPortXLocalization.Key.StatusNoAsset;
+        private ViewPortXLocalization.Key? _statusArgKey;
         private string _statusArgLiteral;
         private Vector2 _previewSize;
         private bool _isDragging;
@@ -447,8 +447,8 @@ namespace PrefabPreviewer
         private const string LanguagePrefsKey = "PrefabPreviewer_UiLanguage";
         private UiLanguage _uiLanguage = UiLanguage.Chinese;
 
-        private const string ConfigDirectoryPath = "Library/ViewportX";
-        private const string ConfigFileName = "ViewportXConfig.json";
+        private const string ConfigDirectoryPath = "Library/ViewPortX";
+        private const string ConfigFileName = "ViewPortXConfig.json";
         private const string LegacyConfigDirectoryPath = "Library/PrefabPreviewer";
         private const string LegacyConfigFileName = "PrefabPreviewerConfig.json";
         private PrefabPreviewerConfig _config;
@@ -588,7 +588,7 @@ namespace PrefabPreviewer
         [MenuItem(MenuPath)]
         public static void ShowWindow()
         {
-            var window = GetWindow(typeof(ViewportXWindow), utility: false, title: "ViewportX", focus: true) as ViewportXWindow;
+            var window = GetWindow(typeof(ViewPortXWindow), utility: false, title: "ViewPortX", focus: true) as ViewPortXWindow;
             if (window == null)
             {
                 return;
@@ -649,20 +649,20 @@ namespace PrefabPreviewer
         {
             var chinese = _uiLanguage == UiLanguage.Chinese;
 
-            if (_playButton != null) _playButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipPlayPauseParticles, chinese);
-            if (_restartButton != null) _restartButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRestartParticles, chinese);
-            if (_gridButton != null) _gridButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipGrid, chinese);
-            if (_autoRotateButton != null) _autoRotateButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipAutoRotate, chinese);
-            if (_lightingButton != null) _lightingButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipLighting, chinese);
-            if (_projectionButton != null) _projectionButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipProjection, chinese);
+            if (_playButton != null) _playButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipPlayPauseParticles, chinese);
+            if (_restartButton != null) _restartButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipRestartParticles, chinese);
+            if (_gridButton != null) _gridButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipGrid, chinese);
+            if (_autoRotateButton != null) _autoRotateButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipAutoRotate, chinese);
+            if (_lightingButton != null) _lightingButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipLighting, chinese);
+            if (_projectionButton != null) _projectionButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipProjection, chinese);
 
-            if (_refreshButton != null) _refreshButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipRefreshSelection, chinese);
-            if (_resetButton != null) _resetButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipResetView, chinese);
-            if (_viewXButton != null) _viewXButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewX, chinese);
-            if (_viewYButton != null) _viewYButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewY, chinese);
-            if (_viewZButton != null) _viewZButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipViewZ, chinese);
-            if (_frameButton != null) _frameButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipFrame, chinese);
-            if (_settingsButton != null) _settingsButton.tooltip = ViewportXLocalization.Get(ViewportXLocalization.Key.TooltipSettings, chinese);
+            if (_refreshButton != null) _refreshButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipRefreshSelection, chinese);
+            if (_resetButton != null) _resetButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipResetView, chinese);
+            if (_viewXButton != null) _viewXButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipViewX, chinese);
+            if (_viewYButton != null) _viewYButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipViewY, chinese);
+            if (_viewZButton != null) _viewZButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipViewZ, chinese);
+            if (_frameButton != null) _frameButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipFrame, chinese);
+            if (_settingsButton != null) _settingsButton.tooltip = ViewPortXLocalization.Get(ViewPortXLocalization.Key.TooltipSettings, chinese);
         }
 
         private void ApplyLocalizedTexts()
@@ -673,7 +673,7 @@ namespace PrefabPreviewer
             ApplyStatusFromState();
         }
 
-        private void SetStatus(ViewportXLocalization.Key key)
+        private void SetStatus(ViewPortXLocalization.Key key)
         {
             _statusKey = key;
             _statusArgKey = null;
@@ -681,7 +681,7 @@ namespace PrefabPreviewer
             ApplyStatusFromState();
         }
 
-        private void SetStatus(ViewportXLocalization.Key key, ViewportXLocalization.Key argKey)
+        private void SetStatus(ViewPortXLocalization.Key key, ViewPortXLocalization.Key argKey)
         {
             _statusKey = key;
             _statusArgKey = argKey;
@@ -689,7 +689,7 @@ namespace PrefabPreviewer
             ApplyStatusFromState();
         }
 
-        private void SetStatus(ViewportXLocalization.Key key, string argLiteral)
+        private void SetStatus(ViewPortXLocalization.Key key, string argLiteral)
         {
             _statusKey = key;
             _statusArgKey = null;
@@ -707,18 +707,18 @@ namespace PrefabPreviewer
             var chinese = _uiLanguage == UiLanguage.Chinese;
             if (_statusArgKey.HasValue)
             {
-                var arg = ViewportXLocalization.Get(_statusArgKey.Value, chinese);
-                _statusLabel.text = ViewportXLocalization.Format(_statusKey, chinese, arg);
+                var arg = ViewPortXLocalization.Get(_statusArgKey.Value, chinese);
+                _statusLabel.text = ViewPortXLocalization.Format(_statusKey, chinese, arg);
                 return;
             }
 
             if (!string.IsNullOrEmpty(_statusArgLiteral))
             {
-                _statusLabel.text = ViewportXLocalization.Format(_statusKey, chinese, _statusArgLiteral);
+                _statusLabel.text = ViewPortXLocalization.Format(_statusKey, chinese, _statusArgLiteral);
                 return;
             }
 
-            _statusLabel.text = ViewportXLocalization.Get(_statusKey, chinese);
+            _statusLabel.text = ViewPortXLocalization.Get(_statusKey, chinese);
         }
 
         private void OnDisable()
@@ -750,16 +750,16 @@ namespace PrefabPreviewer
         {
             rootVisualElement.Clear();
 
-            var uxmlPath = ResolveAssetPath(UxmlGuid, "ViewportXWindow.uxml", "VisualTreeAsset");
+            var uxmlPath = ResolveAssetPath(UxmlGuid, "ViewPortXWindow.uxml", "VisualTreeAsset");
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(uxmlPath);
             if (tree == null)
             {
-                rootVisualElement.Add(new Label(ViewportXLocalization.Format(ViewportXLocalization.Key.MissingUxml, _uiLanguage == UiLanguage.Chinese, uxmlPath)));
+                rootVisualElement.Add(new Label(ViewPortXLocalization.Format(ViewPortXLocalization.Key.MissingUxml, _uiLanguage == UiLanguage.Chinese, uxmlPath)));
                 return;
             }
 
             tree.CloneTree(rootVisualElement);
-            var ussPath = ResolveAssetPath(UssGuid, "ViewportXWindow.uss", "StyleSheet");
+            var ussPath = ResolveAssetPath(UssGuid, "ViewPortXWindow.uss", "StyleSheet");
             var sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(ussPath);
             if (sheet != null)
             {
@@ -767,7 +767,7 @@ namespace PrefabPreviewer
             }
             else
             {
-                rootVisualElement.Add(new Label(ViewportXLocalization.Format(ViewportXLocalization.Key.MissingUss, _uiLanguage == UiLanguage.Chinese, ussPath)));
+                rootVisualElement.Add(new Label(ViewPortXLocalization.Format(ViewPortXLocalization.Key.MissingUss, _uiLanguage == UiLanguage.Chinese, ussPath)));
             }
 
             _previewHost = rootVisualElement.Q<VisualElement>("preview-image");
@@ -834,11 +834,11 @@ namespace PrefabPreviewer
 
             InitializeToolbarIcons(uxmlPath);
 
-            _settingsOverlay = new ViewportXSettingsOverlay(
+            _settingsOverlay = new ViewPortXSettingsOverlay(
                 AboutVersion,
                 AboutAuthor,
-                ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsToolIntroduction, true),
-                ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsToolIntroduction, false),
+                ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsToolIntroduction, true),
+                ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsToolIntroduction, false),
                 GetConfigFilePath,
                 _uiLanguage == UiLanguage.Chinese,
                 chinese =>
@@ -849,16 +849,16 @@ namespace PrefabPreviewer
                 },
                 (key, isChinese) => key switch
                 {
-                    ViewportXSettingsOverlay.TextKey.SettingsVersion => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsVersion, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsAuthor => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsAuthor, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsVisitAuthor => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsVisitAuthor, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsDocumentation => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsDocumentation, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsLanguage => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsLanguage, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsConfig => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsConfig, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsStoragePath => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsStoragePath, isChinese),
-                    ViewportXSettingsOverlay.TextKey.SettingsTools => ViewportXLocalization.Get(ViewportXLocalization.Key.SettingsTools, isChinese),
-                    ViewportXSettingsOverlay.TextKey.LanguageOptionEnglish => ViewportXLocalization.Get(ViewportXLocalization.Key.LanguageOptionEnglish, isChinese),
-                    ViewportXSettingsOverlay.TextKey.LanguageOptionChinese => ViewportXLocalization.Get(ViewportXLocalization.Key.LanguageOptionChinese, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsVersion => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsVersion, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsAuthor => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsAuthor, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsVisitAuthor => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsVisitAuthor, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsDocumentation => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsDocumentation, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsLanguage => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsLanguage, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsConfig => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsConfig, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsStoragePath => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsStoragePath, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.SettingsTools => ViewPortXLocalization.Get(ViewPortXLocalization.Key.SettingsTools, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.LanguageOptionEnglish => ViewPortXLocalization.Get(ViewPortXLocalization.Key.LanguageOptionEnglish, isChinese),
+                    ViewPortXSettingsOverlay.TextKey.LanguageOptionChinese => ViewPortXLocalization.Get(ViewPortXLocalization.Key.LanguageOptionChinese, isChinese),
                     _ => string.Empty
                 });
             rootVisualElement.Add(_settingsOverlay.Root);
@@ -953,7 +953,7 @@ namespace PrefabPreviewer
 
             _prefabRenderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
             {
-                name = "ViewportX_PrefabPreview",
+                name = "ViewPortX_PrefabPreview",
                 antiAliasing = 1,
                 hideFlags = HideFlags.HideAndDontSave
             };
@@ -1311,7 +1311,7 @@ namespace PrefabPreviewer
 
             if (asset == null)
             {
-                SetStatus(ViewportXLocalization.Key.StatusNoAsset);
+                SetStatus(ViewPortXLocalization.Key.StatusNoAsset);
                 ToggleParticleControlsVisibility(forceDisable: true);
                 UpdateControlStates();
                 RequestPreviewRepaint();
@@ -1327,7 +1327,7 @@ namespace PrefabPreviewer
 
                 if (_previewUtility == null)
                 {
-                    SetStatus(ViewportXLocalization.Key.StatusInitPreviewRendererFailed);
+                    SetStatus(ViewPortXLocalization.Key.StatusInitPreviewRendererFailed);
                     ToggleParticleControlsVisibility(forceDisable: true);
                     UpdateControlStates();
                     return;
@@ -1336,7 +1336,7 @@ namespace PrefabPreviewer
                 _previewInstance = _previewUtility.InstantiatePrefabInScene(prefab);
                 if (_previewInstance == null)
                 {
-                    SetStatus(ViewportXLocalization.Key.StatusInstantiatePrefabFailed);
+                    SetStatus(ViewPortXLocalization.Key.StatusInstantiatePrefabFailed);
                     ToggleParticleControlsVisibility(forceDisable: true);
                     UpdateControlStates();
                     RequestPreviewRepaint();
@@ -1382,13 +1382,13 @@ namespace PrefabPreviewer
                     SetupSpritePreview(sprite);
                     break;
                 case Texture texture:
-                    SetupTexturePreview(texture, ViewportXLocalization.Key.AssetTypeTexture);
+                    SetupTexturePreview(texture, ViewPortXLocalization.Key.AssetTypeTexture);
                     break;
                 case Material material:
-                    SetupMaterialPreview(material, ViewportXLocalization.Key.AssetTypeMaterial);
+                    SetupMaterialPreview(material, ViewPortXLocalization.Key.AssetTypeMaterial);
                     break;
                 case Mesh mesh:
-                    SetupAssetPreview(mesh, ViewportXLocalization.Key.AssetTypeMesh);
+                    SetupAssetPreview(mesh, ViewPortXLocalization.Key.AssetTypeMesh);
                     break;
                 default:
                     SetupAssetPreview(asset, asset.GetType().Name);
@@ -1765,7 +1765,7 @@ namespace PrefabPreviewer
                 default:
                     HideMaterialPreview();
                     _previewSurface?.ClearFrame();
-                    SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPreviewableAsset, _uiLanguage == UiLanguage.Chinese));
+                    SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.HintSelectPreviewableAsset, _uiLanguage == UiLanguage.Chinese));
                     break;
             }
         }
@@ -1776,14 +1776,14 @@ namespace PrefabPreviewer
 
             if (_materialPreviewContainer == null)
             {
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
             if (_materialPreviewTarget == null || _materialPreviewEditor == null || rect.width <= 0f || rect.height <= 0f)
             {
                 _materialPreviewContainer.style.display = DisplayStyle.None;
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1796,7 +1796,7 @@ namespace PrefabPreviewer
             if (_previewInstance == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintSelectPrefab, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.HintSelectPrefab, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1809,7 +1809,7 @@ namespace PrefabPreviewer
             if (_previewUtility == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1817,7 +1817,7 @@ namespace PrefabPreviewer
             if (cam == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1842,7 +1842,7 @@ namespace PrefabPreviewer
             if (_uiPreviewCamera == null || _uiCanvasRoot == null || _uiRenderTexture == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.PreviewRendererUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1858,7 +1858,7 @@ namespace PrefabPreviewer
             if (_texturePreview == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintTextureUnavailable, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.HintTextureUnavailable, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -1872,7 +1872,7 @@ namespace PrefabPreviewer
             if (_assetPreviewTexture == null)
             {
                 _previewSurface?.ClearFrame();
-                SetPreviewMessage(ViewportXLocalization.Get(ViewportXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
+                SetPreviewMessage(ViewPortXLocalization.Get(ViewPortXLocalization.Key.HintGeneratingPreview, _uiLanguage == UiLanguage.Chinese));
                 return;
             }
 
@@ -2262,8 +2262,8 @@ namespace PrefabPreviewer
             var chinese = _uiLanguage == UiLanguage.Chinese;
             var obj = Selection.activeObject;
             _selectionLabel.text = obj == null
-                ? ViewportXLocalization.Get(ViewportXLocalization.Key.SelectionNone, chinese)
-                : ViewportXLocalization.Format(ViewportXLocalization.Key.SelectionSelected, chinese, obj.name);
+                ? ViewPortXLocalization.Get(ViewPortXLocalization.Key.SelectionNone, chinese)
+                : ViewPortXLocalization.Format(ViewPortXLocalization.Key.SelectionSelected, chinese, obj.name);
         }
 
         private void SnapViewToAxis(ViewAxis axis)
@@ -2383,11 +2383,11 @@ namespace PrefabPreviewer
         {
             if (sprite == null)
             {
-                SetupTexturePreview(null, ViewportXLocalization.Key.AssetTypeSprite);
+                SetupTexturePreview(null, ViewPortXLocalization.Key.AssetTypeSprite);
                 return;
             }
 
-            SetupTexturePreview(sprite.texture, ViewportXLocalization.Key.AssetTypeSprite);
+            SetupTexturePreview(sprite.texture, ViewPortXLocalization.Key.AssetTypeSprite);
             if (sprite.texture != null)
             {
                 var tex = sprite.texture;
@@ -2401,7 +2401,7 @@ namespace PrefabPreviewer
             }
         }
 
-        private void SetupTexturePreview(Texture texture, ViewportXLocalization.Key typeKey)
+        private void SetupTexturePreview(Texture texture, ViewPortXLocalization.Key typeKey)
         {
             HideMaterialPreview();
             _displayMode = PreviewDisplayMode.Texture;
@@ -2412,8 +2412,8 @@ namespace PrefabPreviewer
             _statusArgKey = typeKey;
             _statusArgLiteral = null;
             _statusKey = texture == null
-                ? ViewportXLocalization.Key.StatusTypeUnavailable
-                : ViewportXLocalization.Key.StatusTypeName;
+                ? ViewPortXLocalization.Key.StatusTypeUnavailable
+                : ViewPortXLocalization.Key.StatusTypeName;
             ApplyStatusFromState();
         }
 
@@ -2428,12 +2428,12 @@ namespace PrefabPreviewer
             _statusArgKey = null;
             _statusArgLiteral = typeName;
             _statusKey = texture == null
-                ? ViewportXLocalization.Key.StatusTypeUnavailable
-                : ViewportXLocalization.Key.StatusTypeName;
+                ? ViewPortXLocalization.Key.StatusTypeUnavailable
+                : ViewPortXLocalization.Key.StatusTypeName;
             ApplyStatusFromState();
         }
 
-        private void SetupAssetPreview(UnityEngine.Object target, ViewportXLocalization.Key labelKey)
+        private void SetupAssetPreview(UnityEngine.Object target, ViewPortXLocalization.Key labelKey)
         {
             HideMaterialPreview();
             _displayMode = PreviewDisplayMode.AssetPreview;
@@ -2442,7 +2442,7 @@ namespace PrefabPreviewer
             _assetPreviewSourceInstanceId = target != null ? target.GetInstanceID() : 0;
             _assetPreviewNextPollTime = 0;
 
-            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusKey = ViewPortXLocalization.Key.StatusTypeName;
             _statusArgKey = labelKey;
             _statusArgLiteral = null;
             ApplyStatusFromState();
@@ -2457,7 +2457,7 @@ namespace PrefabPreviewer
             _assetPreviewSourceInstanceId = target != null ? target.GetInstanceID() : 0;
             _assetPreviewNextPollTime = 0;
 
-            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusKey = ViewPortXLocalization.Key.StatusTypeName;
             _statusArgKey = null;
             _statusArgLiteral = label;
             ApplyStatusFromState();
@@ -2474,7 +2474,7 @@ namespace PrefabPreviewer
             _assetPreviewNextPollTime = 0;
         }
 
-        private void SetupMaterialPreview(Material material, ViewportXLocalization.Key labelKey)
+        private void SetupMaterialPreview(Material material, ViewPortXLocalization.Key labelKey)
         {
             CleanupMaterialPreview();
 
@@ -2486,7 +2486,7 @@ namespace PrefabPreviewer
                 Editor.CreateCachedEditor(material, typeof(MaterialEditor), ref _materialPreviewEditor);
             }
 
-            _statusKey = ViewportXLocalization.Key.StatusTypeName;
+            _statusKey = ViewPortXLocalization.Key.StatusTypeName;
             _statusArgKey = labelKey;
             _statusArgLiteral = null;
             ApplyStatusFromState();
@@ -2632,14 +2632,14 @@ namespace PrefabPreviewer
                 return;
             }
 
-            _statusKey = ViewportXLocalization.Key.StatusPrefix;
+            _statusKey = ViewPortXLocalization.Key.StatusPrefix;
             _statusArgLiteral = null;
             _statusArgKey = _contentType switch
             {
-                PreviewContentType.Model => ViewportXLocalization.Key.ContentTypeModel,
-                PreviewContentType.Particle => ViewportXLocalization.Key.ContentTypeParticle,
-                PreviewContentType.UGUI => ViewportXLocalization.Key.ContentTypeUGUI,
-                _ => ViewportXLocalization.Key.ContentTypeUnknown
+                PreviewContentType.Model => ViewPortXLocalization.Key.ContentTypeModel,
+                PreviewContentType.Particle => ViewPortXLocalization.Key.ContentTypeParticle,
+                PreviewContentType.UGUI => ViewPortXLocalization.Key.ContentTypeUGUI,
+                _ => ViewPortXLocalization.Key.ContentTypeUnknown
             };
             ApplyStatusFromState();
         }
