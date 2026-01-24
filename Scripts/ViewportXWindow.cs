@@ -396,6 +396,7 @@ namespace PrefabPreviewer
         private Button _resetButton;
         private Button _refreshButton;
         private Button _settingsButton;
+        private Image _settingsButtonIcon;
         private Button _viewXButton;
         private Button _viewYButton;
         private Button _viewZButton;
@@ -426,8 +427,6 @@ namespace PrefabPreviewer
         private Texture2D _iconXyzS;
         private Texture2D _iconFocusN;
         private Texture2D _iconFocusS;
-        private Texture2D _iconSettingN;
-        private Texture2D _iconSettingS;
         private Texture2D _iconXN;
         private Texture2D _iconXS;
         private Texture2D _iconYN;
@@ -440,7 +439,6 @@ namespace PrefabPreviewer
         private bool _restartHovered;
         private bool _refreshHovered;
         private bool _frameHovered;
-        private bool _settingsHovered;
 
         private const string AboutVersion = "1.0.0";
         private const string AboutAuthor = "T·L";
@@ -832,6 +830,7 @@ namespace PrefabPreviewer
             });
             _projectionButton?.RegisterCallback<ClickEvent>(_ => ToggleProjection());
 
+            SetupSettingsButtonLikePicSuite();
             InitializeToolbarIcons(uxmlPath);
 
             _settingsOverlay = new ViewPortXSettingsOverlay(
@@ -978,7 +977,6 @@ namespace PrefabPreviewer
             _restartHovered = false;
             _refreshHovered = false;
             _frameHovered = false;
-            _settingsHovered = false;
 
             _iconAutoRotateN = LoadToolbarIcon("AutoRotate_N.png");
             _iconAutoRotateS = LoadToolbarIcon("AutoRotate_S.png");
@@ -996,8 +994,6 @@ namespace PrefabPreviewer
             _iconXyzS = LoadToolbarIcon("XYZ_S.png");
             _iconFocusN = LoadToolbarIcon("Focus_N.png");
             _iconFocusS = LoadToolbarIcon("Focus_S.png");
-            _iconSettingN = LoadToolbarIcon("Setting_N.png");
-            _iconSettingS = LoadToolbarIcon("Setting_S.png");
             _iconXN = LoadToolbarIcon("X_N.png");
             _iconXS = LoadToolbarIcon("X_S.png");
             _iconYN = LoadToolbarIcon("Y_N.png");
@@ -1024,7 +1020,6 @@ namespace PrefabPreviewer
             RegisterHoverState(_restartButton, hovered => _restartHovered = hovered);
             RegisterHoverState(_refreshButton, hovered => _refreshHovered = hovered);
             RegisterHoverState(_frameButton, hovered => _frameHovered = hovered);
-            RegisterHoverState(_settingsButton, hovered => _settingsHovered = hovered);
 
             UpdateToolbarIcons();
         }
@@ -1120,11 +1115,102 @@ namespace PrefabPreviewer
             SetToolbarButtonIcon(_refreshButton, _refreshHovered ? _iconBreakS : _iconBreakN);
             SetToolbarButtonIcon(_resetButton, sceneControls && _currentViewAxis == ViewAxis.None ? _iconXyzS : _iconXyzN);
             SetToolbarButtonIcon(_frameButton, _frameHovered ? _iconFocusS : _iconFocusN);
-            SetToolbarButtonIcon(_settingsButton, _settingsHovered ? _iconSettingS : _iconSettingN);
 
             SetToolbarButtonIcon(_viewXButton, sceneControls && _currentViewAxis == ViewAxis.X ? _iconXS : _iconXN);
             SetToolbarButtonIcon(_viewYButton, sceneControls && _currentViewAxis == ViewAxis.Y ? _iconYS : _iconYN);
             SetToolbarButtonIcon(_viewZButton, sceneControls && _currentViewAxis == ViewAxis.Z ? _iconZS : _iconZN);
+        }
+
+        private void SetupSettingsButtonLikePicSuite()
+        {
+            if (_settingsButton == null)
+            {
+                return;
+            }
+
+            _settingsButton.Clear();
+            _settingsButton.text = string.Empty;
+
+            _settingsButton.style.width = 22;
+            _settingsButton.style.height = 22;
+            _settingsButton.style.paddingLeft = 0;
+            _settingsButton.style.paddingRight = 0;
+            _settingsButton.style.paddingTop = 0;
+            _settingsButton.style.paddingBottom = 0;
+            _settingsButton.style.marginLeft = 2;
+            _settingsButton.style.marginRight = 2;
+            _settingsButton.style.marginTop = 0;
+            _settingsButton.style.marginBottom = 0;
+            _settingsButton.style.borderTopWidth = 0;
+            _settingsButton.style.borderRightWidth = 0;
+            _settingsButton.style.borderBottomWidth = 0;
+            _settingsButton.style.borderLeftWidth = 0;
+            _settingsButton.style.borderTopLeftRadius = 4;
+            _settingsButton.style.borderTopRightRadius = 4;
+            _settingsButton.style.borderBottomLeftRadius = 4;
+            _settingsButton.style.borderBottomRightRadius = 4;
+            _settingsButton.style.backgroundColor = Color.clear;
+            _settingsButton.style.flexDirection = FlexDirection.Row;
+            _settingsButton.style.alignItems = Align.Center;
+            _settingsButton.style.justifyContent = Justify.Center;
+            _settingsButton.style.backgroundImage = new StyleBackground((Texture2D)null);
+
+            var iconColor = new Color(1f, 1f, 1f, 0.7f);
+            _settingsButtonIcon = new Image { name = "settingsButtonIcon" };
+            _settingsButtonIcon.style.width = 16;
+            _settingsButtonIcon.style.height = 16;
+            _settingsButtonIcon.scaleMode = ScaleMode.ScaleToFit;
+            _settingsButtonIcon.tintColor = iconColor;
+
+            var iconContent = EditorGUIUtility.IconContent("Settings");
+            if (iconContent == null || iconContent.image == null)
+            {
+                iconContent = EditorGUIUtility.IconContent("d_Settings");
+            }
+            if (iconContent == null || iconContent.image == null)
+            {
+                iconContent = EditorGUIUtility.IconContent("d_UnityEditor.InspectorWindow");
+            }
+
+            _settingsButtonIcon.image = iconContent?.image;
+            if (_settingsButtonIcon.image == null)
+            {
+                _settingsButtonIcon.style.display = DisplayStyle.None;
+            }
+
+            _settingsButton.Add(_settingsButtonIcon);
+            ApplySettingsButtonInteractions(_settingsButton, _settingsButtonIcon, iconColor);
+        }
+
+        private static void ApplySettingsButtonInteractions(Button button, Image icon, Color iconColor)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var hoverBg = new Color(1f, 1f, 1f, 0.10f);
+            button.RegisterCallback<MouseEnterEvent>(_ =>
+            {
+                if (!button.enabledSelf)
+                {
+                    return;
+                }
+
+                button.style.backgroundColor = hoverBg;
+                if (icon != null)
+                {
+                    icon.tintColor = Color.white;
+                }
+            });
+            button.RegisterCallback<MouseLeaveEvent>(_ =>
+            {
+                button.style.backgroundColor = Color.clear;
+                if (icon != null)
+                {
+                    icon.tintColor = iconColor;
+                }
+            });
         }
 
         private void RegisterPointerEvents()
