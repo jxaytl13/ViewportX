@@ -1265,21 +1265,38 @@ namespace PrefabPreviewer
 
             _previewHost.RegisterCallback<PointerUpEvent>(evt =>
             {
-                if (_isDragging && evt.button == 0)
+                if (evt.button == 0)
                 {
                     _isDragging = false;
-                    _previewHost.ReleasePointer(evt.pointerId);
+                    if (_previewHost.HasPointerCapture(evt.pointerId))
+                    {
+                        _previewHost.ReleasePointer(evt.pointerId);
+                    }
                     evt.StopPropagation();
                 }
-                else if (_isPanning && evt.button == 2)
+                else if (evt.button == 2)
                 {
                     _isPanning = false;
-                    _previewHost.ReleasePointer(evt.pointerId);
+                    if (_previewHost.HasPointerCapture(evt.pointerId))
+                    {
+                        _previewHost.ReleasePointer(evt.pointerId);
+                    }
                     evt.StopPropagation();
                 }
             });
 
             _previewHost.RegisterCallback<PointerLeaveEvent>(_ =>
+            {
+                if (_previewHost.HasPointerCapture(PointerId.mousePointerId))
+                {
+                    return;
+                }
+
+                _isDragging = false;
+                _isPanning = false;
+            });
+
+            _previewHost.RegisterCallback<PointerCaptureOutEvent>(_ =>
             {
                 _isDragging = false;
                 _isPanning = false;
@@ -1892,6 +1909,15 @@ namespace PrefabPreviewer
                 return;
             }
 
+            var targetWidth = Mathf.RoundToInt(rect.width);
+            var targetHeight = Mathf.RoundToInt(rect.height);
+            if (targetWidth < 32 || targetHeight < 32)
+            {
+                _previewSurface?.ClearFrame();
+                SetPreviewMessage(null);
+                return;
+            }
+
             if (_previewUtility == null)
             {
                 _previewSurface?.ClearFrame();
@@ -1910,7 +1936,7 @@ namespace PrefabPreviewer
             ConfigureCamera();
             UpdatePreviewLightingForCamera();
 
-            var rt = EnsurePrefabRenderTexture(Mathf.RoundToInt(rect.width), Mathf.RoundToInt(rect.height));
+            var rt = EnsurePrefabRenderTexture(targetWidth, targetHeight);
 
             var previousTargetTexture = cam.targetTexture;
             cam.targetTexture = rt;
